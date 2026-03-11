@@ -14,6 +14,7 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def primer_recibo(fecha_inicio):
+    # Siempre usamos el día 2 del mes siguiente (o mismo mes si antes del 2)
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
     if fecha_inicio.month == 12:
@@ -35,6 +36,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = 0.0
     interes_enero = 0.0
 
+    # Ajuste diciembre/enero con cambio bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -120,29 +122,37 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE EXACTA
+# CALCULO TAE EXACTA CON AJUSTE DEL PRIMER TRAMO
 # ---------------------------------------------------------
 
 def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
-    # Calcular fracción exacta de año para cada cuota
     tiempos = [0.0]
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
+
     for i in range(1,len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
         fraccion = 0
         actual = f0
-        while actual < f1:
-            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
-            fin_ano = date(actual.year,12,31)
-            if f1 <= fin_ano:
-                dias_tramo = (f1 - actual).days
-                fraccion += dias_tramo / dias_en_ano
-                actual = f1
-            else:
-                dias_tramo = (fin_ano - actual).days + 1
-                fraccion += dias_tramo / dias_en_ano
-                actual = fin_ano + timedelta(days=1)
+
+        # Si es el primer tramo, incluimos el día de financiación hasta el día 2 del primer mes
+        if i==1:
+            fraccion = 0
+            delta = (f1 - f0).days + 1  # incluimos el primer día
+            fraccion = delta / dias_ano(f0)
+        else:
+            while actual < f1:
+                dias_en_ano = 366 if calendar.isleap(actual.year) else 365
+                fin_ano = date(actual.year,12,31)
+                if f1 <= fin_ano:
+                    dias_tramo = (f1 - actual).days
+                    fraccion += dias_tramo / dias_en_ano
+                    actual = f1
+                else:
+                    dias_tramo = (fin_ano - actual).days + 1
+                    fraccion += dias_tramo / dias_en_ano
+                    actual = fin_ano + timedelta(days=1)
+
         tiempos.append(fraccion)
 
     def van(tasa):
@@ -154,7 +164,7 @@ def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
         medio = (minimo + maximo)/2
         valor = van(medio)
         if abs(valor) < 1e-12:
-            return round(medio*100,2), tiempos  # devolvemos tiempos exactos también
+            return round(medio*100,2), tiempos
         if valor > 0:
             minimo = medio
         else:
