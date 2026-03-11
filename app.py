@@ -25,20 +25,38 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-def interes_exacto_tramos(capital, tin, fecha_inicio, fecha_fin):
+def interes_tramos_cambio_anio(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula el interés exacto de un recibo dividiendo el periodo
-    en tramos por año, ajustando correctamente bisiestos/no bisiestos.
+    Calcula el interés exacto de un recibo, manejando correctamente
+    los tramos de cambio de año bisiesto ↔ no bisiesto.
+    Regla:
+        - Del 2 de diciembre al 31 de diciembre con base del año actual
+        - Del 1 de enero al 2 de enero con base del nuevo año
     """
     interes_total = 0.0
     fecha_actual = fecha_inicio
     while fecha_actual < fecha_fin:
-        fin_año = date(fecha_actual.year, 12, 31)
-        fin_tramo = min(fin_año, fecha_fin - timedelta(days=1))
-        dias_tramo = (fin_tramo - fecha_actual).days + 1
-        base = dias_ano(fecha_actual)
-        interes_total += capital * (tin / 100) * dias_tramo / base
-        fecha_actual = fin_tramo + timedelta(days=1)
+        if fecha_actual.month == 12 and fecha_actual.day >= 2:
+            # Tramo 2 diciembre → 31 diciembre
+            fin_tramo = date(fecha_actual.year, 12, 31)
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
+            base = dias_ano(fecha_actual)
+            interes_total += capital * (tin / 100) * dias_tramo / base
+            fecha_actual = fin_tramo + timedelta(days=1)
+        elif fecha_actual.month == 1 and fecha_actual.day == 1:
+            # Tramo 1 enero → 2 enero
+            fin_tramo = fecha_fin - timedelta(days=1)
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
+            base = dias_ano(fecha_actual)
+            interes_total += capital * (tin / 100) * dias_tramo / base
+            fecha_actual = fin_tramo + timedelta(days=1)
+        else:
+            # Tramo normal dentro del mismo mes
+            fin_tramo = fecha_fin - timedelta(days=1)
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
+            base = dias_ano(fecha_actual)
+            interes_total += capital * (tin / 100) * dias_tramo / base
+            fecha_actual = fin_tramo + timedelta(days=1)
     return round(interes_total, 2)
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -50,18 +68,18 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = interes_exacto_tramos(saldo, tin, fecha_anterior, fecha_pago)
-        seguro = round((saldo + interes) * seguro_tasa,2) if seguro_tasa>0 else 0.0
+        interes = interes_tramos_cambio_anio(saldo, tin, fecha_anterior, fecha_pago)
+        seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
         # Último recibo
         if saldo + interes <= cuota:
-            cuota_final = round(saldo + interes,2)
-            amort = round(saldo,2)
+            cuota_final = round(saldo + interes, 2)
+            amort = round(saldo, 2)
             saldo = 0
             if seguro_tasa > 0:
-                seguro = round((amort + interes) * seguro_tasa,2)
-            recibo_total = round(cuota_final + seguro,2)
+                seguro = round((amort + interes) * seguro_tasa, 2)
+            recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
@@ -76,21 +94,21 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             })
             break
 
-        amort = round(cuota - interes,2)
-        saldo = round(saldo - amort,2)
-        recibo_total = round(cuota + seguro,2)
+        amort = round(cuota - interes, 2)
+        saldo = round(saldo - amort, 2)
+        recibo_total = round(cuota + seguro, 2)
 
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente,2),
-            "Cuota (€)": round(cuota,2),
+            "Capital pendiente (€)": round(capital_pendiente, 2),
+            "Cuota (€)": round(cuota, 2),
             "Intereses (€)": interes,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
             "Seguro (€)": seguro,
             "Recibo total (€)": recibo_total,
-            "Recibo total exacto": round(cuota,2)
+            "Recibo total exacto": round(cuota, 2)
         })
 
         fecha_anterior = fecha_pago
@@ -124,28 +142,28 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
         for i in range(len(cuotas)):
             van_lista.append(cuotas[i]/((1+tae)**tiempos[i]))
         if abs(sum(van_lista)) < tolerancia:
-            return redondear_decimal(tae*100,2)
+            return redondear_decimal(tae*100, 2)
         if sum(van_lista) < 0:
             tae -= 0.00001
         else:
             tae += 0.00001
-    return redondear_decimal(tae*100,2)
+    return redondear_decimal(tae*100, 2)
 
 # ---------- INPUTS ----------
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
-opciones = [2.7,3,3.5,4,5,6,7,8,9]
+opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
 cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
 opciones_seguro = {
-    "No":0,
-    "Un titular Light":0.0035,
-    "Un titular Full/Senior":0.0061,
-    "Dos titulares Full/Full":0.0104,
-    "Dos titulares Senior/Senior":0.0104,
-    "Dos titulares Light/Light":0.0059,
-    "Dos titulares Full/Light":0.0082
+    "No": 0,
+    "Un titular Light": 0.0035,
+    "Un titular Full/Senior": 0.0061,
+    "Dos titulares Full/Full": 0.0104,
+    "Dos titulares Senior/Senior": 0.0104,
+    "Dos titulares Light/Light": 0.0059,
+    "Dos titulares Full/Light": 0.0082
 }
 seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
@@ -156,24 +174,24 @@ if st.button("Calcular"):
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
     duracion_meses = len(tabla)
-    total_intereses = round(tabla["Intereses (€)"].sum(),2)
-    total_seguro = round(tabla["Seguro (€)"].sum(),2) if seguro_tasa>0 else 0.0
-    total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
-    total_con_seguro = round(total_capital_intereses + total_seguro,2)
+    total_intereses = round(tabla["Intereses (€)"].sum(), 2)
+    total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0.0
+    total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
+    total_con_seguro = round(total_capital_intereses + total_seguro, 2)
 
     # TAE sin seguro
     cuotas_exactas = [-capital]+list(tabla["Recibo total exacto"].values)
-    tiempos = [0]+[calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio,f) for f in tabla["Fecha recibo"]]
+    tiempos = [0]+[calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
     try:
         tae = calcular_tae(cuotas_exactas, tiempos)
     except:
         tae = "Error"
 
     # Tabla resumen
-    resumen_dict = {"Concepto":["Duración (meses)","Intereses (€)"]}
-    resumen_valores = [int(duracion_meses),total_intereses]
+    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses (€)"]}
+    resumen_valores = [int(duracion_meses), total_intereses]
 
-    if seguro_tasa>0:
+    if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
         resumen_valores.append(total_seguro)
         resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
@@ -182,17 +200,17 @@ if st.button("Calcular"):
     resumen_dict["Concepto"].append("Coste total (capital + intereses)")
     resumen_valores.append(total_capital_intereses)
     resumen_dict["Concepto"].append("TAE aproximada (%)")
-    resumen_valores.append(round(tae,2) if isinstance(tae,float) else tae)
+    resumen_valores.append(round(tae, 2) if isinstance(tae, float) else tae)
 
-    df_resumen = pd.DataFrame({"Concepto":resumen_dict["Concepto"],"Valor":resumen_valores})
+    df_resumen = pd.DataFrame({"Concepto": resumen_dict["Concepto"], "Valor": resumen_valores})
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
 
     # Exportar Excel
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        tabla.drop(columns=["Recibo total exacto"]).to_excel(writer,index=False,sheet_name="Amortización")
-        df_resumen.to_excel(writer,index=False,sheet_name="Resumen")
+        tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
+        df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
     excel_data = output.getvalue()
     st.download_button(
         label="📥 Descargar Excel con resumen",
