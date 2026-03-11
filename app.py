@@ -28,11 +28,9 @@ def siguiente_recibo(fecha):
 def calcular_interes_exacto(capital, tin, fecha_inicio, fecha_fin):
     interes_total = 0
     fecha_actual = fecha_inicio
-
     while fecha_actual < fecha_fin:
         fin_ano = date(fecha_actual.year, 12, 31)
         base = dias_ano(fecha_actual)
-
         if fecha_fin <= fin_ano:
             dias = (fecha_fin - fecha_actual).days
             interes_total += capital * (tin / 100) * dias / base
@@ -41,7 +39,6 @@ def calcular_interes_exacto(capital, tin, fecha_inicio, fecha_fin):
             dias = (fin_ano - fecha_actual).days + 1
             interes_total += capital * (tin / 100) * dias / base
             fecha_actual = fin_ano + timedelta(days=1)
-
     return round(interes_total, 2)  # redondeo mensual a 2 decimales
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -55,9 +52,9 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     while saldo > 0:
         interes = calcular_interes_exacto(saldo, tin, fecha_anterior, fecha_pago)
         dias = (fecha_pago - fecha_anterior).days
-        seguro = (saldo + interes) * seguro_tasa if seguro_tasa > 0 else 0.0
+        seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
 
-        # Último recibo ajustado
+        # Ajustar último recibo
         if saldo + interes <= cuota:
             cuota_final = round(saldo + interes, 2)
             amort = round(saldo, 2)
@@ -91,7 +88,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Intereses (€)": interes,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
-            "Seguro (€)": round(seguro,2),
+            "Seguro (€)": seguro,
             "Recibo total (€)": recibo_total,
             "Recibo total exacto": round(cuota,2)
         })
@@ -117,7 +114,6 @@ def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha
     while fecha_actual < fecha_vencimiento:
         fin_ano = pd.Timestamp(year=fecha_actual.year, month=12, day=31)
         base = 366 if calendar.isleap(fecha_actual.year) else 365
-
         if fecha_vencimiento <= fin_ano:
             dias = (fecha_vencimiento - fecha_actual).days
             fraccion_total += dias / base
@@ -145,7 +141,7 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=1000):
     return redondear_decimal(tae * 100,2)
 
 # ---------- INPUTS ----------
-capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 1000.0)
+capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
