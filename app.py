@@ -119,7 +119,7 @@ cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)"
 
 # Selectbox de seguro con tasas por titular
 seguro_str = st.selectbox(
-    "Seguro mensual",
+    "Seguro mensual sobre saldo pendiente + interés",
     ["No", "Un titular", "Dos titulares"]
 )
 
@@ -146,13 +146,14 @@ if st.button("Calcular"):
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
 
-    # Mostrar seguro solo si se ha seleccionado un titular o dos
     if seguro_tasa > 0:
         total_seguro = tabla["Seguro (€)"].sum()
         st.metric("Total seguro (€)", round(total_seguro,2))
-        st.write(f"**Coste total a pagar con seguro:** {round(total_cuota + total_seguro,2)} €")
+        st.write(f"**Coste total a pagar con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
+    else:
+        st.write("**Seguro no contratado**")
 
-    st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
+    st.write(f"**Coste total (capital + intereses):** {round(total_cuota,2)} €")
 
     # -------- EXPORTAR EXCEL --------
     output = BytesIO()
