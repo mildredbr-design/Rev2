@@ -25,17 +25,17 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# ---------- INTERESES PRECISOS ----------
+# ---------- INTERESES EXACTOS ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
     """
     Calcula intereses exactos de un recibo.
-    Ajuste especial solo si el recibo es en enero y diciembre anterior tiene cambio de bisiesto.
-    Se calcula día a día para enero y se suma con diciembre.
+    Ajuste especial si diciembre cambia bisiesto/no bisiesto y el recibo cae en enero.
+    Redondeo solo al final.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
-    # Caso especial: enero tras diciembre
+    # Caso especial: enero tras diciembre con posible cambio de bisiesto
     if fecha_inicio.month == 1 and fecha_anterior is not None and fecha_anterior.month == 12:
         # Tramo diciembre
         fin_diciembre = date(fecha_anterior.year, 12, 31)
@@ -43,16 +43,14 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
         base_dic = 366 if calendar.isleap(fecha_anterior.year) else 365
         interes_dic = capital * (tin / 100) * dias_dic / base_dic
 
-        # Tramo enero contado día a día desde 1 hasta fecha_fin
+        # Tramo enero
         inicio_enero = date(fecha_fin.year, 1, 1)
-        interes_ene = 0
+        dias_ene = (fecha_fin - inicio_enero).days + 1
         base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
-        for i in range((fecha_fin - inicio_enero).days + 1):  # +1 para incluir el día del recibo
-            interes_ene += capital * (tin / 100) / base_ene
+        interes_ene = capital * (tin / 100) * dias_ene / base_ene
 
         interes_total = interes_dic + interes_ene
     else:
-        # cálculo normal para otros meses
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
         interes_total = capital * (tin / 100) * dias_tramo / base
