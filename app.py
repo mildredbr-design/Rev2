@@ -62,6 +62,32 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 5)
     return round(interes_total, 2), 0.0, round(interes_total, 5)
 
+# ---------- FRACCIONES DE AÑO PARA TAE ----------
+def fraccion_ano_tae(fecha_inicio, fecha_fin):
+    fecha_inicio = pd.to_datetime(fecha_inicio).date()
+    fecha_fin = pd.to_datetime(fecha_fin).date()
+
+    # Cambio bisiesto ↔ no bisiesto
+    if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
+        year_prev = fecha_fin.year - 1
+        year_curr = fecha_fin.year
+        bisiesto_prev = calendar.isleap(year_prev)
+        bisiesto_curr = calendar.isleap(year_curr)
+        if bisiesto_prev != bisiesto_curr:
+            # Diciembre: 2-31
+            base_dic = 366 if bisiesto_prev else 365
+            fraccion_dic = 29 / base_dic
+            # Enero: 1 hasta fecha_fin
+            base_ene = 366 if bisiesto_curr else 365
+            dias_ene = (fecha_fin - date(year_curr,1,1)).days + 1
+            fraccion_ene = dias_ene / base_ene
+            return fraccion_dic + fraccion_ene
+
+    # Mes normal
+    dias_tramo = (fecha_fin - fecha_inicio).days
+    base = dias_ano(fecha_inicio)
+    return dias_tramo / base
+
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
@@ -95,7 +121,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Saldo (€)": saldo,
                 "Seguro (€)": round(seguro, 2),
                 "Recibo total (€)": round(recibo_total, 2),
-                "Recibo total exacto": recibo_total
+                "Recibo total exacto": recibo_total,
+                "Fraccion año TAE": fraccion_ano_tae(fecha_anterior, fecha_pago)
             })
             break
 
@@ -115,7 +142,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Saldo (€)": round(saldo, 2),
             "Seguro (€)": round(seguro, 2),
             "Recibo total (€)": round(recibo_total, 2),
-            "Recibo total exacto": recibo_total
+            "Recibo total exacto": recibo_total,
+            "Fraccion año TAE": fraccion_ano_tae(fecha_anterior, fecha_pago)
         })
 
         fecha_anterior = fecha_pago
@@ -126,19 +154,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
     return pd.DataFrame(datos)
 
-# ---------- FUNCIONES TAE ----------
-def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, fecha_fin):
-    fecha_inicio = pd.to_datetime(fecha_inicio).date()
-    fecha_fin = pd.to_datetime(fecha_fin).date()
-    fraccion_total = 0.0
-    for i in range((fecha_fin - fecha_inicio).days):
-        dia = fecha_inicio + timedelta(days=i)
-        fraccion_total += 1 / (366 if calendar.isleap(dia.year) else 365)
-    return fraccion_total
-
-def redondear_decimal(valor, decimales=6):
-    return round(valor, decimales)
-
+# ---------- CALCULO TAE ----------
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
     tae = 0.2179
     van_lista = []
@@ -147,12 +163,12 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
         for i in range(len(cuotas)):
             van_lista.append(cuotas[i]/((1+tae)**tiempos[i]))
         if abs(sum(van_lista)) < tolerancia:
-            return redondear_decimal(tae*100, 2)
+            return round(tae*100, 2)
         if sum(van_lista) < 0:
             tae -= 0.00001
         else:
             tae += 0.00001
-    return redondear_decimal(tae*100, 2)
+    return round(tae*100, 2)
 
 # ---------- INPUTS ----------
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
@@ -185,7 +201,6 @@ if st.button("Calcular"):
 
     st.dataframe(tabla_mostrar, use_container_width=True)
 
-    duracion_meses = len(tabla)
     total_intereses = round(tabla["Intereses total (€)"].sum(), 2)
     total_intereses_diciembre = round(tabla["Intereses diciembre (€)"].sum(), 2)
     total_intereses_enero = round(tabla["Intereses enero (€)"].sum(), 2)
@@ -193,29 +208,24 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
     total_con_seguro = round(total_capital_intereses + total_seguro, 2)
 
-    # TAE calculada con los valores exactos
+    # TAE exacta usando la fracción de año por tramo
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
-    tiempos = [0] + [calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
-    try:
-        tae = calcular_tae(cuotas_exactas, tiempos)
-    except:
-        tae = "Error"
+    tiempos = [0] + list(tabla["Fraccion año TAE"].cumsum())
+    tae = calcular_tae(cuotas_exactas, tiempos)
 
     resumen_dict = {
-        "Concepto": ["Duración (meses)", "Intereses totales (€)", "Intereses diciembre (€)", "Intereses enero (€)"]
+        "Concepto": ["Duración (meses)", "Intereses totales (€)", "Intereses diciembre (€)", "Intereses enero (€)", "TAE aproximada (%)"]
     }
-    resumen_valores = [int(duracion_meses), total_intereses, total_intereses_diciembre, total_intereses_enero]
+    resumen_valores = [len(tabla), total_intereses, total_intereses_diciembre, total_intereses_enero, tae]
 
     if seguro_tasa > 0:
-        resumen_dict["Concepto"].append("Seguro (€) total")
-        resumen_valores.append(total_seguro)
-        resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
-        resumen_valores.append(total_con_seguro)
+        resumen_dict["Concepto"].insert(4, "Seguro (€) total")
+        resumen_valores.insert(4, total_seguro)
+        resumen_dict["Concepto"].insert(5, "Coste total con seguro (capital + intereses + seguro)")
+        resumen_valores.insert(5, total_con_seguro)
 
     resumen_dict["Concepto"].append("Coste total (capital + intereses)")
     resumen_valores.append(total_capital_intereses)
-    resumen_dict["Concepto"].append("TAE aproximada (%)")
-    resumen_valores.append(round(tae, 2) if isinstance(tae, float) else tae)
 
     df_resumen = pd.DataFrame({"Concepto": resumen_dict["Concepto"], "Valor": resumen_valores})
     st.subheader("📊 Resumen en tabla")
