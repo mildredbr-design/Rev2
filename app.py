@@ -161,7 +161,7 @@ if st.button("Calcular"):
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
     # Valores resumen
-    duracion_meses = len(tabla)
+    duracion_meses = int(len(tabla))  # <-- aseguramos entero
     total_intereses = round(tabla["Intereses (€)"].sum(),2)
     total_seguro = round(tabla["Seguro (€)"].sum(),2) if seguro_tasa > 0 else 0.0
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
