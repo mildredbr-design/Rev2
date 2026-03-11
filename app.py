@@ -26,38 +26,37 @@ def siguiente_recibo(fecha):
         return date(fecha.year, fecha.month + 1, 2)
 
 # ---------- FUNCION EXACTA DE INTERESES SOLO EN ENERO DESPUES DE CAMBIO BISIETO ----------
-def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
+def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_mes_anterior=None):
     """
-    Calcula intereses de un recibo:
-    - normalmente usa base 365 o 366 según el año
-    - si cruza diciembre → enero con cambio bisiesto/no bisiesto, aplica fracción exacta
+    Calcula intereses exactos de un recibo:
+    - normalmente usa base 365/366
+    - solo ajusta fracción exacta si es enero y el mes anterior fue diciembre con cambio bisiesto/no bisiesto
     """
-    interes_total = 0.0
-    fecha_actual = fecha_inicio
+    fecha_inicio = pd.to_datetime(fecha_inicio)
+    fecha_fin = pd.to_datetime(fecha_fin)
 
-    while fecha_actual < fecha_fin:
-        base = 366 if calendar.isleap(fecha_actual.year) else 365
-        fin_tramo = fecha_fin - timedelta(days=1)
+    # Base normal
+    base = 366 if calendar.isleap(fecha_inicio.year) else 365
+    dias = (fecha_fin - fecha_inicio).days
 
-        # Caso especial: cambio de año bisiesto ↔ no bisiesto
-        if fecha_actual.month == 12 and fecha_actual.day >= 2 and fecha_fin.year != fecha_actual.year:
-            # Tramo diciembre
-            fin_tramo = date(fecha_actual.year, 12, 31)
-            dias_tramo = (fin_tramo - fecha_actual).days + 1
-            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
+    # Interés normal
+    interes = capital * (tin / 100) * dias / base
 
-            # Tramo enero siguiente con fracción exacta
-            interes_total += round(capital * (tin / 100) *
-                                   calcular_fraccion_entre_financiacion_y_vencimiento(
-                                       date(fecha_fin.year-1,12,31), fecha_fin
-                                   ), 5)
-            break
-        else:
-            dias_tramo = (fecha_fin - fecha_actual).days
-            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
-            break
+    # Ajuste especial: solo enero y hay mes anterior
+    if fecha_mes_anterior:
+        mes_ant = pd.to_datetime(fecha_mes_anterior)
+        # Solo si mes anterior diciembre y mes actual enero
+        if mes_ant.month == 12 and fecha_fin.month == 1:
+            # Detecta cambio de año bisiesto ↔ no bisiesto
+            año_bisiesto_ant = calendar.isleap(mes_ant.year)
+            año_bisiesto_act = calendar.isleap(fecha_fin.year)
+            if año_bisiesto_ant != año_bisiesto_act:
+                # Recalcula interés usando fracción exacta
+                interes = capital * (tin / 100) * calcular_fraccion_entre_financiacion_y_vencimiento(
+                    date(fecha_fin.year-1,12,31), fecha_fin
+                )
 
-    return round(interes_total, 2)
+    return round(interes, 2)
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -69,7 +68,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
+        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago,
+                                  fecha_mes_anterior=fecha_anterior)
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
