@@ -75,39 +75,30 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         seguro = round((saldo + interes_total) * seguro_tasa, 5)
         capital_pendiente = saldo
 
+        # -----------------------------
+        # Calculo de amortización exacta
+        # -----------------------------
         if saldo + interes_total <= cuota:
-            amort = round(saldo, 2)
+            amort = saldo  # último pago
             saldo = 0
             cuota_final = round(amort + interes_total, 2)
             recibo_total = round(cuota_final + seguro, 2)
-            datos.append({
-                "Mes": mes,
-                "Fecha recibo": fecha_pago,
-                "Capital pendiente (€)": round(capital_pendiente, 2),
-                "Cuota (€)": cuota_final,
-                "Intereses diciembre (€)": interes_diciembre,
-                "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": round(interes_total, 2),
-                "Amortización (€)": amort,
-                "Saldo (€)": saldo,
-                "Seguro (€)": seguro,
-                "Recibo total (€)": recibo_total
-            })
-            break
+        else:
+            amort = cuota - interes_total  # sin redondear todavía
+            saldo = saldo - amort  # sin redondear todavía
+            cuota_final = cuota
+            recibo_total = round(cuota + seguro, 2)
 
-        amort = round(cuota - interes_total, 2)
-        saldo = round(saldo - amort, 2)
-        recibo_total = round(cuota + seguro, 2)
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
             "Capital pendiente (€)": round(capital_pendiente, 2),
-            "Cuota (€)": cuota,
+            "Cuota (€)": round(cuota_final, 2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
             "Intereses total (€)": round(interes_total, 2),
-            "Amortización (€)": amort,
-            "Saldo (€)": saldo,
+            "Amortización (€)": round(amort, 2),
+            "Saldo (€)": round(saldo, 2),
             "Seguro (€)": seguro,
             "Recibo total (€)": recibo_total
         })
