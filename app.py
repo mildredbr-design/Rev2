@@ -62,7 +62,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
-    cuota = capital * (cuota_porcentaje / 100)
+    cuota = round(capital * (cuota_porcentaje / 100), 2)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
@@ -76,40 +76,40 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         capital_pendiente = saldo
 
         if saldo + interes_total <= cuota:
-            amort = saldo
+            amort = round(saldo, 2)
             saldo = 0
-            cuota_final = amort + interes_total
-            recibo_total = cuota_final + seguro
+            cuota_final = round(amort + interes_total, 2)
+            recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
-                "Capital pendiente (€)": round(capital_pendiente,2),
-                "Cuota (€)": round(cuota_final,2),
+                "Capital pendiente (€)": round(capital_pendiente, 2),
+                "Cuota (€)": cuota_final,
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": round(interes_total,2),
-                "Amortización (€)": round(amort,2),
+                "Intereses total (€)": round(interes_total, 2),
+                "Amortización (€)": amort,
                 "Saldo (€)": saldo,
-                "Seguro (€)": round(seguro,2),
-                "Recibo total (€)": round(recibo_total,2)
+                "Seguro (€)": seguro,
+                "Recibo total (€)": recibo_total
             })
             break
 
-        amort = cuota - interes_total
-        saldo -= amort
-        recibo_total = cuota + seguro
+        amort = round(cuota - interes_total, 2)
+        saldo = round(saldo - amort, 2)
+        recibo_total = round(cuota + seguro, 2)
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente,2),
-            "Cuota (€)": round(cuota,2),
+            "Capital pendiente (€)": round(capital_pendiente, 2),
+            "Cuota (€)": cuota,
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes_total,2),
-            "Amortización (€)": round(amort,2),
-            "Saldo (€)": round(saldo,2),
-            "Seguro (€)": round(seguro,2),
-            "Recibo total (€)": round(recibo_total,2)
+            "Intereses total (€)": round(interes_total, 2),
+            "Amortización (€)": amort,
+            "Saldo (€)": saldo,
+            "Seguro (€)": seguro,
+            "Recibo total (€)": recibo_total
         })
 
         fecha_anterior = fecha_pago
