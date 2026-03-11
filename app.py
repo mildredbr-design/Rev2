@@ -4,7 +4,7 @@ from datetime import datetime, date
 import calendar
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador de Préstamo Revolving con Seguro Opcional y TAE Exacta")
+st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
 
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
@@ -120,34 +120,45 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE ULTRA PRECISO
+# CALCULO TAE EXACTA
 # ---------------------------------------------------------
 
-def calcular_tae_preciso(cuotas, fechas, fecha_inicio):
-    # Se usan días reales exactos
+def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
     tiempos = [0.0]
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     for f in fechas:
         f = pd.to_datetime(f).date()
-        dias = (f - fecha_inicio).days
-        tiempos.append(dias / 365)  # fracción exacta del año
+        # fracción exacta año usando días reales
+        fraccion = 0
+        actual = fecha_inicio
+        while actual < f:
+            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
+            fin_ano = date(actual.year,12,31)
+            if f <= fin_ano:
+                dias_tramo = (f - actual).days
+                fraccion += dias_tramo / dias_en_ano
+                actual = f
+            else:
+                dias_tramo = (fin_ano - actual).days + 1
+                fraccion += dias_tramo / dias_en_ano
+                actual = fin_ano + pd.Timedelta(days=1)
+        tiempos.append(fraccion)
 
     def van(tasa):
-        return sum(c / ((1 + tasa) ** t) for c, t in zip(cuotas, tiempos))
+        return sum(c / ((1 + tasa) ** t) for c,t in zip(cuotas, tiempos))
 
-    # Búsqueda binaria muy precisa
     minimo = -0.999999
     maximo = 10.0
     for _ in range(1000):
-        medio = (minimo + maximo) / 2
+        medio = (minimo + maximo)/2
         valor = van(medio)
         if abs(valor) < 1e-12:
-            return round(medio * 100, 2)
+            return round(medio*100,2)
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-    return round(medio * 100, 2)
+    return round(medio*100,2)
 
 # ---------------------------------------------------------
 # INPUTS
@@ -159,7 +170,6 @@ fecha_inicio = st.date_input("Fecha de financiación",datetime.today())
 opciones=[2.7,3,3.5,4,5,6,7,8,9]
 cuota_porcentaje=st.selectbox("Velocidad de reembolso (% del capital inicial)",opciones)
 
-# Seguro opcional, incluye "No"
 opciones_seguro = {
     "No": 0,
     "Un titular Light": 0.0035,
@@ -170,11 +180,7 @@ opciones_seguro = {
     "Dos titulares Full/Light": 0.0082
 }
 
-seguro_str = st.selectbox(
-    "Seguro mensual sobre saldo pendiente + interés",
-    list(opciones_seguro.keys())  # <-- incluye "No"
-)
-
+seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
 
 # ---------------------------------------------------------
@@ -190,9 +196,8 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
-    # TAE sin seguro
     cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
-    tae = calcular_tae_preciso(cuotas_tae, tabla["Fecha recibo"], fecha_inicio)
+    tae = calcular_tae_exacta(cuotas_tae, tabla["Fecha recibo"], fecha_inicio)
 
     resumen_dict = {
         "Concepto":[
