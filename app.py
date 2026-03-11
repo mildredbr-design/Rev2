@@ -51,14 +51,16 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 5)
 
+            # Suma total con 5 decimales internamente
             interes_total = round(interes_diciembre + interes_enero, 5)
-            return interes_total, interes_diciembre, interes_enero
+            # Para tabla: redondeo a 2 decimales
+            return round(interes_total, 2), interes_diciembre, interes_enero
 
-    # Mes normal: interés redondeado a 5 decimales interno
+    # Mes normal
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 5)
-    return interes_total, 0.0, interes_total
+    return round(interes_total, 2), 0.0, round(interes_total, 5)
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -75,7 +77,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         seguro = round((saldo + interes_total) * seguro_tasa, 5) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
-        # Ajuste último recibo
+        # Último recibo
         if saldo + interes_total <= cuota:
             amort = saldo
             saldo = 0
