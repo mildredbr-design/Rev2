@@ -131,18 +131,16 @@ if st.button("Calcular"):
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
     total_seguro = tabla["Seguro (€)"].sum()
-    total_recibo = tabla["Recibo total (€)"].sum()
 
-    col1, col2, col3, col4, col5 = st.columns(5)
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
     col4.metric("Total seguro (€)", round(total_seguro,2) if seguro_opcional else "0,00")
-    col5.metric("Total con seguro (€)", round(total_recibo,2) if seguro_opcional else round(total_cuota,2))
 
     st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
     if seguro_opcional:
-        st.write(f"**Coste total a pagar con seguro:** {round(total_recibo,2)} €")
+        st.write(f"**Coste total a pagar con seguro:** {round(total_cuota + total_seguro,2)} €")
     else:
         st.write("**Seguro no activado**")
 
