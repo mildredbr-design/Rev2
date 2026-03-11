@@ -30,7 +30,6 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
-    # Inicializamos tramos
     interes_diciembre = 0.0
     interes_enero = 0.0
 
@@ -49,7 +48,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
         base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
         interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
-        interes_total = interes_diciembre + interes_enero
+        interes_total = round(interes_diciembre + interes_enero, 2)
     else:
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
@@ -88,6 +87,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Cuota (€)": cuota_final,
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
+                "Intereses total (€)": interes,
                 "Amortización (€)": amort,
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
@@ -106,6 +106,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Cuota (€)": round(cuota, 2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
+            "Intereses total (€)": interes,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
             "Seguro (€)": seguro,
@@ -176,7 +177,7 @@ if st.button("Calcular"):
     st.dataframe(tabla, use_container_width=True)
 
     duracion_meses = len(tabla)
-    total_intereses = round(tabla["Intereses enero (€)"].sum() + tabla["Intereses diciembre (€)"].sum(), 2)
+    total_intereses = round(tabla["Intereses total (€)"].sum(), 2)
     total_intereses_diciembre = round(tabla["Intereses diciembre (€)"].sum(), 2)
     total_intereses_enero = round(tabla["Intereses enero (€)"].sum(), 2)
     total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0.0
