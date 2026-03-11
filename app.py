@@ -2,14 +2,19 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
 import calendar
+from decimal import Decimal, getcontext, ROUND_HALF_UP
+
+# ---------------------------------------------------------
+# CONFIGURACIÓN PRECISIÓN DECIMAL
+# ---------------------------------------------------------
+getcontext().prec = 12  # precisión suficiente para cálculos financieros
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
+st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta (Decimal)")
 
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
-
 def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
@@ -26,14 +31,15 @@ def siguiente_recibo(fecha):
     return date(fecha.year, fecha.month + 1, 2)
 
 # ---------------------------------------------------------
-# CALCULO INTERESES (sin redondeo interno)
+# CALCULO INTERESES CON DECIMAL
 # ---------------------------------------------------------
-
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-    interes_diciembre = 0.0
-    interes_enero = 0.0
+    capital = Decimal(capital)
+    tin = Decimal(tin)
+    interes_diciembre = Decimal('0.0')
+    interes_enero = Decimal('0.0')
 
     # Ajuste diciembre/enero con cambio de bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
@@ -43,26 +49,26 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
-            base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = capital * (tin / 100) * dias_dic / base_dic
+            base_dic = Decimal(366 if bisiesto_prev else 365)
+            interes_diciembre = capital * tin / Decimal('100') * Decimal(dias_dic) / base_dic
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
-            base_ene = 366 if bisiesto_curr else 365
-            interes_enero = capital * (tin / 100) * dias_ene / base_ene
+            base_ene = Decimal(366 if bisiesto_curr else 365)
+            interes_enero = capital * tin / Decimal('100') * Decimal(dias_ene) / base_ene
             interes_total = interes_diciembre + interes_enero
             return interes_total, interes_diciembre, interes_enero
 
     dias_tramo = (fecha_fin - fecha_inicio).days
-    base = dias_ano(fecha_inicio)
-    interes_total = capital * (tin / 100) * dias_tramo / base
-    return interes_total, 0.0, interes_total
+    base = Decimal(dias_ano(fecha_inicio))
+    interes_total = capital * tin / Decimal('100') * Decimal(dias_tramo) / base
+    return interes_total, Decimal('0.0'), interes_total
 
 # ---------------------------------------------------------
 # SIMULADOR
 # ---------------------------------------------------------
-
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
-    saldo = capital
-    cuota_precisa = capital * (cuota_porcentaje / 100)
+    saldo = Decimal(capital)
+    cuota_precisa = Decimal(capital) * Decimal(cuota_porcentaje)/Decimal('100')
+    tin = Decimal(tin)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
@@ -72,32 +78,32 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         interes_total_preciso, interes_dic, interes_ene = interes_preciso(
             saldo, tin, fecha_anterior, fecha_pago
         )
-        seguro = (saldo + interes_total_preciso) * seguro_tasa
+        seguro = (saldo + interes_total_preciso) * Decimal(seguro_tasa)
         capital_pendiente = saldo
 
-        # Amortización exacta
+        # Calcular amortización exacta
         if saldo + interes_total_preciso <= cuota_precisa:
             amort = saldo
-            saldo = 0
+            saldo = Decimal('0.0')
             cuota_final = amort + interes_total_preciso
         else:
             amort = cuota_precisa - interes_total_preciso
             saldo -= amort
             cuota_final = cuota_precisa
 
-        # Guardamos solo valores redondeados a mostrar
+        # Guardamos valores redondeados a 2 decimales para mostrar
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente,2),
-            "Cuota (€)": round(cuota_final,2),
-            "Intereses diciembre (€)": round(interes_dic,2),
-            "Intereses enero (€)": round(interes_ene,2),
-            "Intereses total (€)": round(interes_total_preciso,2),
-            "Amortización (€)": round(amort,2),
-            "Saldo (€)": round(saldo,2),
-            "Seguro (€)": round(seguro,2),
-            "Recibo total (€)": round(cuota_final + seguro,2)
+            "Capital pendiente (€)": float(capital_pendiente.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Cuota (€)": float(cuota_final.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses diciembre (€)": float(interes_dic.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses enero (€)": float(interes_ene.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses total (€)": float(interes_total_preciso.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Amortización (€)": float(amort.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Saldo (€)": float(saldo.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Seguro (€)": float(seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Recibo total (€)": float((cuota_final + seguro).quantize(Decimal('0.01'), ROUND_HALF_UP))
         })
 
         fecha_anterior = fecha_pago
@@ -111,51 +117,49 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 # ---------------------------------------------------------
 # CALCULO TAE EXACTA
 # ---------------------------------------------------------
-
 def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
-    tiempos = [0.0]
+    tiempos = [Decimal('0.0')]
 
     for i in range(1, len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
-        fraccion = 0.0
+        fraccion = Decimal('0.0')
         actual = f0
 
         while actual < f1:
-            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
+            dias_en_ano = Decimal(366 if calendar.isleap(actual.year) else 365)
             fin_ano = date(actual.year, 12, 31)
             if f1 <= fin_ano:
-                dias_tramo = (f1 - actual).days
+                dias_tramo = Decimal((f1 - actual).days)
                 fraccion += dias_tramo / dias_en_ano
                 actual = f1
             else:
-                dias_tramo = (fin_ano - actual).days + 1
+                dias_tramo = Decimal((fin_ano - actual).days + 1)
                 fraccion += dias_tramo / dias_en_ano
                 actual = fin_ano + timedelta(days=1)
 
-        tiempos.append(round(tiempos[-1] + fraccion,12))
+        tiempos.append(tiempos[-1] + fraccion)
 
     def van(tasa):
-        return sum(c / ((1 + tasa) ** t) for c,t in zip(cuotas, tiempos))
+        return sum(Decimal(c) / (Decimal('1.0') + Decimal(tasa)) ** Decimal(t) for c,t in zip(cuotas, tiempos))
 
-    minimo = -0.999999
-    maximo = 10.0
+    minimo = Decimal('-0.999999')
+    maximo = Decimal('10.0')
     for _ in range(1000):
-        medio = (minimo + maximo)/2
+        medio = (minimo + maximo)/Decimal('2.0')
         valor = van(medio)
-        if abs(valor) < 1e-12:
-            return round(medio*100,2), tiempos
+        if abs(valor) < Decimal('1e-12'):
+            return float((medio*Decimal('100')).quantize(Decimal('0.01'), ROUND_HALF_UP)), tiempos
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-    return round(medio*100,2), tiempos
+    return float((medio*Decimal('100')).quantize(Decimal('0.01'), ROUND_HALF_UP)), tiempos
 
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
-
 capital = st.number_input("Capital inicial (€)",0.0,1000000.0,6000.0)
 tin = st.number_input("TIN anual (%)",0.0,100.0,21.79)
 fecha_inicio = st.date_input("Fecha de financiación",datetime.today())
@@ -178,18 +182,17 @@ seguro_tasa = opciones_seguro[seguro_str]
 # ---------------------------------------------------------
 # CALCULO Y RESULTADOS
 # ---------------------------------------------------------
-
 if st.button("Calcular"):
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
     st.dataframe(tabla, use_container_width=True)
 
-    total_intereses = round(tabla["Intereses total (€)"].sum(),2)
-    total_seguro = round(tabla["Seguro (€)"].sum(),2)
-    total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
-    total_con_seguro = round(total_capital_intereses + total_seguro,2)
+    total_intereses = sum(Decimal(v) for v in tabla["Intereses total (€)"])
+    total_seguro = sum(Decimal(v) for v in tabla["Seguro (€)"])
+    total_capital_intereses = sum(Decimal(v) for v in tabla["Cuota (€)"])
+    total_con_seguro = total_capital_intereses + total_seguro
 
-    # Para la TAE usamos Cuota (€) sin seguro
-    cuotas_tae = [-capital] + list(tabla["Amortización (€)"] + tabla["Intereses total (€)"])
+    # Para TAE usamos Cuota (€) sin seguro
+    cuotas_tae = [-Decimal(capital)] + [Decimal(a)+Decimal(i) for a,i in zip(tabla["Amortización (€)"], tabla["Intereses total (€)"])]
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
 
@@ -204,10 +207,10 @@ if st.button("Calcular"):
         ],
         "Valor":[
             len(tabla),
-            total_intereses,
-            total_seguro,
-            total_con_seguro,
-            total_capital_intereses,
+            float(total_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            float(total_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            float(total_con_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            float(total_capital_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
             tae
         ]
     }
