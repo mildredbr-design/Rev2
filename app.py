@@ -8,7 +8,7 @@ st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador de Préstamo Revolving con Seguro Opcional y TAE Exacta")
 
 # ---------------------------------------------------------
-# FUNCIONES
+# FUNCIONES AUXILIARES
 # ---------------------------------------------------------
 
 def dias_ano(fecha):
@@ -16,6 +16,7 @@ def dias_ano(fecha):
 
 
 def primer_recibo(fecha_inicio):
+
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
 
@@ -26,6 +27,7 @@ def primer_recibo(fecha_inicio):
 
 
 def siguiente_recibo(fecha):
+
     if fecha.month == 12:
         return date(fecha.year + 1, 1, 2)
 
@@ -33,7 +35,7 @@ def siguiente_recibo(fecha):
 
 
 # ---------------------------------------------------------
-# INTERESES
+# CALCULO INTERESES
 # ---------------------------------------------------------
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
@@ -58,14 +60,16 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
             base_dic = 366 if bisiesto_prev else 365
 
             interes_diciembre = round(
-                capital * (tin / 100) * dias_dic / base_dic, 5
+                capital * (tin / 100) * dias_dic / base_dic,
+                5
             )
 
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
 
             interes_enero = round(
-                capital * (tin / 100) * dias_ene / base_ene, 5
+                capital * (tin / 100) * dias_ene / base_ene,
+                5
             )
 
             interes_total = round(interes_diciembre + interes_enero, 5)
@@ -76,7 +80,8 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     base = dias_ano(fecha_inicio)
 
     interes_total = round(
-        capital * (tin / 100) * dias_tramo / base, 5
+        capital * (tin / 100) * dias_tramo / base,
+        5
     )
 
     return round(interes_total, 2), 0.0, interes_total
@@ -118,15 +123,15 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
-                "Capital pendiente (€)": round(capital_pendiente, 2),
-                "Cuota (€)": round(cuota_final, 2),
+                "Capital pendiente (€)": round(capital_pendiente,2),
+                "Cuota (€)": round(cuota_final,2),
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": round(interes_total, 2),
-                "Amortización (€)": round(amort, 2),
+                "Intereses total (€)": round(interes_total,2),
+                "Amortización (€)": round(amort,2),
                 "Saldo (€)": saldo,
-                "Seguro (€)": round(seguro, 2),
-                "Recibo total (€)": round(recibo_total, 2),
+                "Seguro (€)": round(seguro,2),
+                "Recibo total (€)": round(recibo_total,2),
                 "Recibo total exacto": recibo_total
             })
 
@@ -140,15 +145,15 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente, 2),
-            "Cuota (€)": round(cuota, 2),
+            "Capital pendiente (€)": round(capital_pendiente,2),
+            "Cuota (€)": round(cuota,2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes_total, 2),
-            "Amortización (€)": round(amort, 2),
-            "Saldo (€)": round(saldo, 2),
-            "Seguro (€)": round(seguro, 2),
-            "Recibo total (€)": round(recibo_total, 2),
+            "Intereses total (€)": round(interes_total,2),
+            "Amortización (€)": round(amort,2),
+            "Saldo (€)": round(saldo,2),
+            "Seguro (€)": round(seguro,2),
+            "Recibo total (€)": round(recibo_total,2),
             "Recibo total exacto": recibo_total
         })
 
@@ -164,67 +169,70 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
 
 # ---------------------------------------------------------
-# TAE
+# CALCULO TAE ESTABLE
 # ---------------------------------------------------------
 
 def calcular_tae(cuotas, tiempos):
 
-    r = 0.2
-
-    for _ in range(100):
-
-        f = sum(c / ((1 + r) ** t) for c, t in zip(cuotas, tiempos))
-
-        df = sum(
-            -t * c / ((1 + r) ** (t + 1))
+    def van(tasa):
+        return sum(
+            c / ((1 + tasa) ** t)
             for c, t in zip(cuotas, tiempos)
         )
 
-        r = r - f / df
+    minimo = -0.9999
+    maximo = 1.0
 
-        if abs(f) < 1e-9:
-            break
+    for _ in range(200):
 
-    return round(r * 100, 2)
+        medio = (minimo + maximo) / 2
+        valor = van(medio)
+
+        if abs(valor) < 1e-10:
+            return round(medio * 100, 2)
+
+        if valor > 0:
+            minimo = medio
+        else:
+            maximo = medio
+
+    return round(medio * 100, 2)
 
 
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
 
-capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
+capital = st.number_input("Capital inicial (€)",0.0,1000000.0,6000.0)
 
-tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
+tin = st.number_input("TIN anual (%)",0.0,100.0,21.79)
 
-fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
+fecha_inicio = st.date_input("Fecha de financiación",datetime.today())
 
-opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
+opciones=[2.7,3,3.5,4,5,6,7,8,9]
 
-cuota_porcentaje = st.selectbox(
+cuota_porcentaje=st.selectbox(
     "Velocidad de reembolso (% del capital inicial)",
     opciones
 )
 
-# ---------------------------------------------------------
-# SEGURO
-# ---------------------------------------------------------
-
-opciones_seguro = {
-    "No": 0,
-    "Un titular Light": 0.0035,
-    "Un titular Full/Senior": 0.0061,
-    "Dos titulares Full/Full": 0.0104,
-    "Dos titulares Senior/Senior": 0.0104,
-    "Dos titulares Light/Light": 0.0059,
-    "Dos titulares Full/Light": 0.0082
+opciones_seguro={
+    "No":0,
+    "Un titular Light":0.0035,
+    "Un titular Full/Senior":0.0061,
+    "Dos titulares Full/Full":0.0104,
+    "Dos titulares Senior/Senior":0.0104,
+    "Dos titulares Light/Light":0.0059,
+    "Dos titulares Full/Light":0.0082
 }
 
-seguro_str = st.selectbox(
+seguro_str=st.selectbox(
     "Seguro mensual sobre saldo pendiente + interés",
     list(opciones_seguro.keys())
 )
 
-seguro_tasa = opciones_seguro[seguro_str]
+seguro_tasa=opciones_seguro[seguro_str]
+
 
 # ---------------------------------------------------------
 # CALCULO
@@ -232,7 +240,7 @@ seguro_tasa = opciones_seguro[seguro_str]
 
 if st.button("Calcular"):
 
-    tabla = simulador(
+    tabla=simulador(
         capital,
         tin,
         cuota_porcentaje,
@@ -240,36 +248,33 @@ if st.button("Calcular"):
         seguro_tasa
     )
 
-    st.dataframe(tabla, use_container_width=True)
+    st.dataframe(tabla,use_container_width=True)
 
-    total_intereses = round(tabla["Intereses total (€)"].sum(), 2)
+    total_intereses=round(tabla["Intereses total (€)"].sum(),2)
 
-    total_seguro = round(tabla["Seguro (€)"].sum(), 2)
+    total_seguro=round(tabla["Seguro (€)"].sum(),2)
 
-    total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
+    total_capital_intereses=round(tabla["Cuota (€)"].sum(),2)
 
-    total_con_seguro = round(
-        total_capital_intereses + total_seguro,
+    total_con_seguro=round(
+        total_capital_intereses+total_seguro,
         2
     )
 
-    cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"])
+    cuotas_exactas=[-capital]+list(tabla["Recibo total exacto"])
 
-    tiempos = [0]
+    tiempos=[0]
 
     for f in tabla["Fecha recibo"]:
 
-        dias = (
-            pd.to_datetime(f)
-            - pd.to_datetime(fecha_inicio)
-        ).days
+        dias=(pd.to_datetime(f)-pd.to_datetime(fecha_inicio)).days
 
-        tiempos.append(dias / 365)
+        tiempos.append(dias/365)
 
-    tae = calcular_tae(cuotas_exactas, tiempos)
+    tae=calcular_tae(cuotas_exactas,tiempos)
 
-    resumen_dict = {
-        "Concepto": [
+    resumen_dict={
+        "Concepto":[
             "Duración (meses)",
             "Intereses (€)",
             "Seguro (€) total",
@@ -277,7 +282,7 @@ if st.button("Calcular"):
             "Coste total (capital + intereses)",
             "TAE aproximada (%)"
         ],
-        "Valor": [
+        "Valor":[
             len(tabla),
             total_intereses,
             total_seguro,
@@ -287,7 +292,7 @@ if st.button("Calcular"):
         ]
     }
 
-    df_resumen = pd.DataFrame(resumen_dict)
+    df_resumen=pd.DataFrame(resumen_dict)
 
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
