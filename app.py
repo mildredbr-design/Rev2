@@ -34,19 +34,17 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_enero = 0.0
     interes_total = 0.0
 
-    # Comprobar si es enero y hay cambio de bisiesto entre año anterior y actual
+    # Cambio bisiesto ↔ no bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            # Tramo diciembre: 2 de diciembre al 31 de diciembre → 29 días exactos
-            dias_dic = 29
+            dias_dic = 29  # siempre 2-31 diciembre
             base_dic = 366 if bisiesto_prev else 365
             interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
-            # Tramo enero: 1 enero al fecha_fin
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
@@ -75,12 +73,11 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
+        # Ajuste último recibo
         if saldo + interes <= cuota:
-            cuota_final = round(saldo + interes, 2)
-            amort = round(saldo, 2)
+            amort = saldo  # Amortizamos todo el capital pendiente
             saldo = 0
-            if seguro_tasa > 0:
-                seguro = round((amort + interes) * seguro_tasa, 2)
+            cuota_final = round(amort + interes, 2)
             recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
@@ -90,15 +87,15 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
                 "Intereses total (€)": interes,
-                "Amortización (€)": amort,
+                "Amortización (€)": round(amort, 2),
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
                 "Recibo total (€)": recibo_total
             })
             break
 
-        amort = round(cuota - interes, 2)
-        saldo = round(saldo - amort, 2)
+        amort = cuota - interes
+        saldo -= amort
         recibo_total = round(cuota + seguro, 2)
 
         datos.append({
@@ -109,8 +106,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
             "Intereses total (€)": interes,
-            "Amortización (€)": amort,
-            "Saldo (€)": saldo,
+            "Amortización (€)": round(amort, 2),
+            "Saldo (€)": round(saldo, 2),
             "Seguro (€)": seguro,
             "Recibo total (€)": recibo_total
         })
