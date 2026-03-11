@@ -7,10 +7,10 @@ from decimal import Decimal, getcontext, ROUND_HALF_UP
 # ---------------------------------------------------------
 # CONFIGURACIÓN PRECISIÓN DECIMAL
 # ---------------------------------------------------------
-getcontext().prec = 12  # precisión suficiente para cálculos financieros
+getcontext().prec = 12  # suficiente para cálculos financieros exactos
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta (Decimal)")
+st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
 
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
@@ -67,7 +67,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 # ---------------------------------------------------------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = Decimal(capital)
-    cuota_precisa = Decimal(capital) * Decimal(cuota_porcentaje)/Decimal('100')
+    cuota_precisa = (Decimal(capital) * Decimal(cuota_porcentaje)/Decimal('100'))
     tin = Decimal(tin)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
