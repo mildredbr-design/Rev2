@@ -41,16 +41,13 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            # Tramo diciembre: siempre 2 de diciembre al 31 de diciembre
-            inicio_dic = date(year_prev, 12, 2)
-            fin_dic = date(year_prev, 12, 31)
-            dias_dic = (fin_dic - inicio_dic).days + 1
+            # Tramo diciembre: 2 de diciembre al 31 de diciembre → 29 días exactos
+            dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
             interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
             # Tramo enero: 1 enero al fecha_fin
-            inicio_ene = date(year_curr, 1, 1)
-            dias_ene = (fecha_fin - inicio_ene).days + 1
+            dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
