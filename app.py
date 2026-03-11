@@ -12,7 +12,6 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def primer_recibo(fecha_inicio):
-    # Primer recibo: día 2 siguiente
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
     if fecha_inicio.month == 12:
@@ -21,18 +20,12 @@ def primer_recibo(fecha_inicio):
         return date(fecha_inicio.year, fecha_inicio.month + 1, 2)
 
 def siguiente_recibo(fecha):
-    # Recibo siguiente: día 2 del mes siguiente
     if fecha.month == 12:
         return date(fecha.year + 1, 1, 2)
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
 def calcular_interes_exacto(capital, tin, fecha_inicio, fecha_fin):
-    """
-    Calcula interés exacto entre dos fechas usando la fórmula:
-    Interés = capital * TIN * (días / días naturales del año)
-    Ajusta correctamente cambios de año bisiesto/no bisiesto
-    """
     interes_total = 0
     fecha_actual = fecha_inicio
 
@@ -49,7 +42,7 @@ def calcular_interes_exacto(capital, tin, fecha_inicio, fecha_fin):
             interes_total += capital * (tin / 100) * dias / base
             fecha_actual = fin_ano + timedelta(days=1)
 
-    return interes_total
+    return round(interes_total, 2)  # redondeo mensual a 2 decimales
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
@@ -64,43 +57,43 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         dias = (fecha_pago - fecha_anterior).days
         seguro = (saldo + interes) * seguro_tasa if seguro_tasa > 0 else 0.0
 
-        # Ajustar último recibo
+        # Último recibo ajustado
         if saldo + interes <= cuota:
-            cuota_final = saldo + interes
-            amort = saldo
+            cuota_final = round(saldo + interes, 2)
+            amort = round(saldo, 2)
             saldo = 0
             if seguro_tasa > 0:
-                seguro = (amort + interes) * seguro_tasa
-            recibo_total = cuota_final + seguro
+                seguro = round((amort + interes) * seguro_tasa, 2)
+            recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
                 "Días": dias,
-                "Cuota (€)": round(cuota_final,2),
-                "Intereses (€)": round(interes,2),
-                "Amortización (€)": round(amort,2),
-                "Saldo (€)": round(saldo,2),
-                "Seguro (€)": round(seguro,2),
-                "Recibo total (€)": round(recibo_total,2),
+                "Cuota (€)": cuota_final,
+                "Intereses (€)": interes,
+                "Amortización (€)": amort,
+                "Saldo (€)": saldo,
+                "Seguro (€)": seguro,
+                "Recibo total (€)": recibo_total,
                 "Recibo total exacto": cuota_final
             })
             break
 
-        amort = cuota - interes
-        saldo -= amort
-        recibo_total = cuota + seguro
+        amort = round(cuota - interes, 2)
+        saldo = round(saldo - amort, 2)
+        recibo_total = round(cuota + seguro, 2)
 
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
             "Días": dias,
             "Cuota (€)": round(cuota,2),
-            "Intereses (€)": round(interes,2),
-            "Amortización (€)": round(amort,2),
-            "Saldo (€)": round(saldo,2),
+            "Intereses (€)": interes,
+            "Amortización (€)": amort,
+            "Saldo (€)": saldo,
             "Seguro (€)": round(seguro,2),
-            "Recibo total (€)": round(recibo_total,2),
-            "Recibo total exacto": cuota
+            "Recibo total (€)": recibo_total,
+            "Recibo total exacto": round(cuota,2)
         })
 
         fecha_anterior = fecha_pago
