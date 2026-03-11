@@ -130,19 +130,21 @@ if st.button("Calcular"):
     st.subheader("📊 Resumen")
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
-    total_seguro = tabla["Seguro (€)"].sum()
 
-    col1, col2, col3, col4 = st.columns(4)
+    # Columnas fijas
+    col1, col2, col3 = st.columns(3)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
-    col4.metric("Total seguro (€)", round(total_seguro,2) if seguro_opcional else "0,00")
 
-    st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
+    # Línea de seguro solo si está activado
     if seguro_opcional:
+        total_seguro = tabla["Seguro (€)"].sum()
+        st.metric("Total seguro (€)", round(total_seguro,2))
         st.write(f"**Coste total a pagar con seguro:** {round(total_cuota + total_seguro,2)} €")
-    else:
-        st.write("**Seguro no activado**")
+
+    # Coste total sin seguro siempre visible
+    st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
 
     # -------- EXPORTAR EXCEL --------
     output = BytesIO()
