@@ -14,6 +14,7 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def primer_recibo(fecha_inicio):
+    # Siempre usamos el día 2 del mes siguiente (o mismo mes si antes del 2)
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
     if fecha_inicio.month == 12:
@@ -49,12 +50,12 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 5)
             interes_total = round(interes_diciembre + interes_enero, 5)
-            return interes_total, interes_diciembre, interes_enero
+            return round(interes_total, 2), interes_diciembre, interes_enero
 
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 5)
-    return interes_total, 0.0, interes_total
+    return round(interes_total, 2), 0.0, interes_total
 
 # ---------------------------------------------------------
 # SIMULADOR
@@ -87,11 +88,11 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Cuota (€)": round(cuota_final,2),
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": round(interes_total,5),
-                "Amortización (€)": round(amort,5),
+                "Intereses total (€)": round(interes_total,2),
+                "Amortización (€)": round(amort,2),
                 "Saldo (€)": saldo,
-                "Seguro (€)": round(seguro,5),
-                "Recibo total (€)": round(recibo_total,5)
+                "Seguro (€)": round(seguro,2),
+                "Recibo total (€)": round(recibo_total,2)
             })
             break
 
@@ -102,14 +103,14 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Mes": mes,
             "Fecha recibo": fecha_pago,
             "Capital pendiente (€)": round(capital_pendiente,2),
-            "Cuota (€)": round(cuota,5),
+            "Cuota (€)": round(cuota,2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes_total,5),
-            "Amortización (€)": round(amort,5),
-            "Saldo (€)": round(saldo,5),
-            "Seguro (€)": round(seguro,5),
-            "Recibo total (€)": round(recibo_total,5)
+            "Intereses total (€)": round(interes_total,2),
+            "Amortización (€)": round(amort,2),
+            "Saldo (€)": round(saldo,2),
+            "Seguro (€)": round(seguro,2),
+            "Recibo total (€)": round(recibo_total,2)
         })
 
         fecha_anterior = fecha_pago
@@ -121,35 +122,37 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE EXACTA USANDO INTERESES REALES
+# CALCULO TAE EXACTA CON AJUSTE DEL PRIMER TRAMO
 # ---------------------------------------------------------
 
-def calcular_tae_exacta(tabla, fecha_inicio):
-    # Importante: TAE no incluye seguro, solo capital + intereses exactos
-    cuotas = [-tabla.iloc[0]["Capital pendiente (€)"]]
-    fechas = [fecha_inicio]
-    for i in range(len(tabla)):
-        cuota_real = tabla.iloc[i]["Amortización (€)"] + tabla.iloc[i]["Intereses total (€)"]
-        cuotas.append(cuota_real)
-        fechas.append(tabla.iloc[i]["Fecha recibo"])
-
+def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
     tiempos = [0.0]
+    fecha_inicio = pd.to_datetime(fecha_inicio).date()
+
     for i in range(1,len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
         fraccion = 0
         actual = f0
-        while actual < f1:
-            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
-            fin_ano = date(actual.year,12,31)
-            if f1 <= fin_ano:
-                dias_tramo = (f1 - actual).days
-                fraccion += dias_tramo / dias_en_ano
-                actual = f1
-            else:
-                dias_tramo = (fin_ano - actual).days + 1
-                fraccion += dias_tramo / dias_en_ano
-                actual = fin_ano + timedelta(days=1)
+
+        # Si es el primer tramo, incluimos el día de financiación hasta el día 2 del primer mes
+        if i==1:
+            fraccion = 0
+            delta = (f1 - f0).days + 1  # incluimos el primer día
+            fraccion = delta / dias_ano(f0)
+        else:
+            while actual < f1:
+                dias_en_ano = 366 if calendar.isleap(actual.year) else 365
+                fin_ano = date(actual.year,12,31)
+                if f1 <= fin_ano:
+                    dias_tramo = (f1 - actual).days
+                    fraccion += dias_tramo / dias_en_ano
+                    actual = f1
+                else:
+                    dias_tramo = (fin_ano - actual).days + 1
+                    fraccion += dias_tramo / dias_en_ano
+                    actual = fin_ano + timedelta(days=1)
+
         tiempos.append(fraccion)
 
     def van(tasa):
@@ -204,7 +207,9 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
-    tae, tiempos_exactos = calcular_tae_exacta(tabla, fecha_inicio)
+    cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
+    fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
+    tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
 
     resumen_dict = {
         "Concepto":[
@@ -234,10 +239,10 @@ if st.button("Calcular"):
     # ---------------------------------------------------------
 
     tabla_tae = pd.DataFrame({
-        "Fecha": [fecha_inicio]+list(tabla["Fecha recibo"]),
-        "Cuota (sin seguro) (€)": [-capital]+list(tabla["Amortización (€)"] + tabla["Intereses total (€)"]),
-        "Tiempo (años)": [0.0]+[round(t,5) for t in tiempos_exactos[1:]],
-        "Valor descontado": [-capital]+[round(c / ((1 + tae/100) ** t),5) for c,t in zip(tabla["Amortización (€)"] + tabla["Intereses total (€)"], tiempos_exactos[1:])]
+        "Fecha": fechas_tae,
+        "Cuota (sin seguro) (€)": cuotas_tae,
+        "Tiempo (años)": [round(t,5) for t in tiempos_exactos],
+        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, tiempos_exactos)]
     })
 
     st.subheader("📈 Detalle cálculo TAE mes a mes")
