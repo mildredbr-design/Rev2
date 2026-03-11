@@ -26,32 +26,28 @@ def siguiente_recibo(fecha):
         return date(fecha.year, fecha.month + 1, 2)
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
-    """
-    Calcula intereses exactos de un recibo.
-    - Tramos de cambio de año bisiesto/no bisiesto ajustados
-    - Intermedio 5 decimales, suma final redondeada a 2 decimales
-    """
     interes_total = 0.0
     fecha_actual = fecha_inicio
-
     while fecha_actual < fecha_fin:
-
         fin_tramo = fecha_fin
         base = dias_ano(fecha_actual)
 
-        # Caso cambio de año
         if fecha_actual.month == 12 and fecha_actual.day >= 2 and fecha_fin.year != fecha_actual.year:
-
             fin_tramo = date(fecha_actual.year, 12, 31)
+
+            if calendar.isleap(fecha_actual.year) and not calendar.isleap(fecha_fin.year):
+                base = 366
+            elif not calendar.isleap(fecha_actual.year) and calendar.isleap(fecha_fin.year):
+                base = 365
+
             dias_tramo = (fin_tramo - fecha_actual).days + 1
             interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
 
             fecha_actual = date(fecha_fin.year, 1, 1)
             fin_tramo = fecha_fin - timedelta(days=1)
-
             base = dias_ano(fecha_actual)
-            dias_tramo = (fin_tramo - fecha_actual).days + 1
 
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
             interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
             break
 
@@ -63,26 +59,19 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     return round(interes_total, 2)
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
-
     saldo = capital
     cuota = capital * (cuota_porcentaje / 100)
-
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
-
     datos = []
     mes = 1
 
     while saldo > 0:
-
         interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
-
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
-
         capital_pendiente = saldo
 
         if saldo + interes <= cuota:
-
             cuota_final = round(saldo + interes, 2)
             amort = round(saldo, 2)
             saldo = 0
@@ -104,12 +93,10 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Recibo total (€)": recibo_total,
                 "Recibo total exacto": cuota_final
             })
-
             break
 
         amort = round(cuota - interes, 2)
         saldo = round(saldo - amort, 2)
-
         recibo_total = round(cuota + seguro, 2)
 
         datos.append({
@@ -127,7 +114,6 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
-
         mes += 1
 
         if mes > 600:
@@ -136,34 +122,55 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------- FUNCIONES TAE ----------
-def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha_vencimiento):
-    """
-    Calcula la fracción exacta de año entre la fecha de financiación
-    y la fecha de vencimiento teniendo en cuenta años bisiestos.
-    """
+def calcular_fraccion_entre_financiacion_y_vencimiento(
+        fecha_financiacion,
+        w_fecha_ultimo_vencimiento_tratado):
 
     fecha_financiacion = pd.to_datetime(fecha_financiacion)
-    fecha_vencimiento = pd.to_datetime(fecha_vencimiento)
+    w_fecha_ultimo_vencimiento_tratado = pd.to_datetime(w_fecha_ultimo_vencimiento_tratado)
 
-    fraccion_año = 0.0
-    fecha_inicio = fecha_financiacion
+    w_dia_año = 366 if calendar.isleap(w_fecha_ultimo_vencimiento_tratado.year) else 365
+    w_dia_año_anterior = 366 if calendar.isleap(w_fecha_ultimo_vencimiento_tratado.year - 1) else 365
 
-    while fecha_inicio.year <= fecha_vencimiento.year:
+    if w_fecha_ultimo_vencimiento_tratado.year == fecha_financiacion.year:
+        w_dia_año_anterior = w_dia_año
 
-        fin_año = pd.Timestamp(year=fecha_inicio.year, month=12, day=31)
+    if (w_fecha_ultimo_vencimiento_tratado.year - fecha_financiacion.year + 1) < 1:
+        delta_años = 0
+    else:
+        delta_años = w_fecha_ultimo_vencimiento_tratado.year - fecha_financiacion.year + 1
 
-        fecha_fin_tramo = min(fin_año, fecha_vencimiento)
+    w_aniversario_fecha_financiacion = fecha_financiacion + pd.DateOffset(years=delta_años)
 
-        dias_año = 366 if calendar.isleap(fecha_inicio.year) else 365
+    if w_dia_año != w_dia_año_anterior and w_fecha_ultimo_vencimiento_tratado < w_aniversario_fecha_financiacion:
 
-        dias_tramo = (fecha_fin_tramo - fecha_inicio).days + 1
+        delta_años = delta_años - 2 if delta_años > 1 else 0
+        w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
 
-        fraccion_año += dias_tramo / dias_año
+        fraccion_año = (
+            delta_años +
+            ((w_dia_año_anterior - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año_anterior) +
+            (w_fecha_ultimo_vencimiento_tratado.dayofyear / w_dia_año)
+        )
 
-        fecha_inicio = fecha_fin_tramo + pd.Timedelta(days=1)
+    elif w_fecha_ultimo_vencimiento_tratado > w_aniversario_fecha_financiacion:
 
-        if fecha_inicio > fecha_vencimiento:
-            break
+        fraccion_año = (
+            (0 if delta_años < 1 else delta_años) +
+            ((w_fecha_ultimo_vencimiento_tratado.dayofyear -
+              w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
+        )
+
+    else:
+
+        delta_años = delta_años - 1 if delta_años > 1 else 0
+        w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
+
+        fraccion_año = (
+            delta_años +
+            ((w_fecha_ultimo_vencimiento_tratado.dayofyear -
+              w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
+        )
 
     return round(fraccion_año, 7)
 
@@ -171,13 +178,10 @@ def redondear_decimal(valor, decimales=6):
     return round(valor, decimales)
 
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
-
     tae = 0.2179
-
     van_lista = []
 
     for _ in range(max_iter):
-
         van_lista.clear()
 
         for i in range(len(cuotas)):
@@ -196,14 +200,10 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
 # ---------- INPUTS ----------
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
-
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
-
-cuota_porcentaje = st.selectbox(
-    "Velocidad de reembolso (% del capital inicial)", opciones
-)
+cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
 opciones_seguro = {
     "No": 0,
@@ -215,33 +215,21 @@ opciones_seguro = {
     "Dos titulares Full/Light": 0.0082
 }
 
-seguro_str = st.selectbox(
-    "Seguro mensual sobre saldo pendiente + interés",
-    list(opciones_seguro.keys())
-)
-
+seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
 
 # ---------- CALCULO ----------
 if st.button("Calcular"):
-
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
-
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
     duracion_meses = len(tabla)
-
     total_intereses = round(tabla["Intereses (€)"].sum(), 2)
-
     total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0.0
-
     total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
-
     total_con_seguro = round(total_capital_intereses + total_seguro, 2)
 
-    # TAE
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
-
     tiempos = [0] + [
         calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f)
         for f in tabla["Fecha recibo"]
@@ -252,50 +240,29 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    resumen_dict = {
-        "Concepto": ["Duración (meses)", "Intereses (€)"]
-    }
-
-    resumen_valores = [
-        int(duracion_meses),
-        total_intereses
-    ]
+    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses (€)"]}
+    resumen_valores = [int(duracion_meses), total_intereses]
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
         resumen_valores.append(total_seguro)
-
-        resumen_dict["Concepto"].append(
-            "Coste total con seguro (capital + intereses + seguro)"
-        )
+        resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
         resumen_valores.append(total_con_seguro)
 
     resumen_dict["Concepto"].append("Coste total (capital + intereses)")
     resumen_valores.append(total_capital_intereses)
-
     resumen_dict["Concepto"].append("TAE aproximada (%)")
     resumen_valores.append(round(tae, 2) if isinstance(tae, float) else tae)
 
-    df_resumen = pd.DataFrame({
-        "Concepto": resumen_dict["Concepto"],
-        "Valor": resumen_valores
-    })
+    df_resumen = pd.DataFrame({"Concepto": resumen_dict["Concepto"], "Valor": resumen_valores})
 
     st.subheader("📊 Resumen en tabla")
-
     st.table(df_resumen)
 
-    # ---------- EXPORTAR EXCEL ----------
     output = BytesIO()
-
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        tabla.drop(columns=["Recibo total exacto"]).to_excel(
-            writer, index=False, sheet_name="Amortización"
-        )
-
-        df_resumen.to_excel(
-            writer, index=False, sheet_name="Resumen"
-        )
+        tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
+        df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
 
     excel_data = output.getvalue()
 
