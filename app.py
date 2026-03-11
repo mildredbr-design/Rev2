@@ -119,7 +119,7 @@ cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)"
 
 # Selectbox de seguro con tasas por titular
 seguro_str = st.selectbox(
-    "Seguro mensual sobre saldo pendiente + interés",
+    "Seguro mensual",
     ["No", "Un titular", "Dos titulares"]
 )
 
