@@ -295,22 +295,21 @@ if st.button("Calcular") and valor is not None:
 
     st.subheader("Resumen")
     st.table(df_resumen)
+# ---------------------------------------------------------
+# EXPORTAR A EXCEL
+# ---------------------------------------------------------
 
-    # ---------------------------------------------------------
-    # EXPORTAR A EXCEL
-    # ---------------------------------------------------------
+output = BytesIO()
+with pd.ExcelWriter(output) as writer:  # Eliminamos engine="xlsxwriter"
+    tabla.to_excel(writer, sheet_name="Cuadro Amortización", index=False)
+    df_resumen.to_excel(writer, sheet_name="Resumen", index=False)
 
-    output=BytesIO()
-    with pd.ExcelWriter(output,engine="xlsxwriter") as writer:
+excel_data = output.getvalue()
 
-        tabla.to_excel(writer,sheet_name="Cuadro Amortización",index=False)
-        df_resumen.to_excel(writer,sheet_name="Resumen",index=False)
-
-    excel_data=output.getvalue()
-
-    st.download_button(
-        label="📥 Descargar cuadro de amortización en Excel",
-        data=excel_data,
-        file_name="simulacion_revolving.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+st.download_button(
+    label="📥 Descargar cuadro de amortización en Excel",
+    data=excel_data,
+    file_name="simulacion_revolving.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
+    
