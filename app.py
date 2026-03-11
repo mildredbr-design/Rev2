@@ -7,7 +7,11 @@ import calendar
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador de Préstamo Revolving")
 
-# -------- PRIMER RECIBO (día 2) --------
+# -------- DIAS DEL AÑO --------
+def dias_ano(fecha):
+    return 366 if calendar.isleap(fecha.year) else 365
+
+# -------- PRIMER RECIBO --------
 def primer_recibo(fecha_inicio):
 
     if fecha_inicio.day < 2:
@@ -26,9 +30,29 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# -------- DIAS DEL AÑO --------
-def dias_ano(fecha):
-    return 366 if calendar.isleap(fecha.year) else 365
+# -------- INTERES POR DIAS CON CAMBIO DE AÑO --------
+def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
+
+    interes_total = 0
+    fecha_actual = fecha_inicio
+
+    while fecha_actual < fecha_fin:
+
+        fin_ano = date(fecha_actual.year, 12, 31)
+
+        if fecha_fin <= fin_ano:
+            dias = (fecha_fin - fecha_actual).days
+            base = dias_ano(fecha_actual)
+            interes_total += capital * (tin/100) * dias / base
+            break
+
+        else:
+            dias = (fin_ano - fecha_actual).days + 1
+            base = dias_ano(fecha_actual)
+            interes_total += capital * (tin/100) * dias / base
+            fecha_actual = date(fecha_actual.year + 1, 1, 1)
+
+    return interes_total
 
 # -------- SIMULADOR --------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
@@ -44,12 +68,10 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
 
     while saldo > 0:
 
+        interes = calcular_interes(saldo, tin, fecha_anterior, fecha_pago)
+
         dias = (fecha_pago - fecha_anterior).days
-        base_ano = dias_ano(fecha_anterior)
 
-        interes = saldo * (tin / 100) * dias / base_ano
-
-        # último recibo
         if saldo + interes <= cuota:
 
             cuota_final = saldo + interes
