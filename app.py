@@ -101,10 +101,6 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------- FUNCIONES TAE ----------
-def truncar_decimal(valor, decimales):
-    factor = 10 ** decimales
-    return int(valor * factor) / factor
-
 def redondear_decimal(valor, decimales=6):
     return round(valor, decimales)
 
@@ -164,55 +160,46 @@ if st.button("Calcular"):
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
-    st.subheader("📊 Resumen")
-    total_cuota = tabla["Cuota (€)"].sum()
+    # Valores resumen
+    duracion_meses = len(tabla)
     total_intereses = tabla["Intereses (€)"].sum()
     total_seguro = tabla["Seguro (€)"].sum() if seguro_tasa > 0 else 0.0
+    total_capital_intereses = tabla["Cuota (€)"].sum()
+    total_con_seguro = total_capital_intereses + total_seguro
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Meses totales", len(tabla))
-    col2.metric("Total pagado (€)", round(total_cuota,2))
-    col3.metric("Intereses (€)", round(total_intereses,2))
-    
-    st.write(f"**Coste total (capital + intereses):** {round(total_cuota,2)} €")
-    if seguro_tasa == 0:
-        st.write("**Seguro no contratado**")
-    else:
-        st.write(f"**Seguro (€) total:** {round(total_seguro,2)} €")
-        st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
-
-    # ---------- CÁLCULO TAE (SIN SEGURO) ----------
+    # Calculo TAE (sin seguro)
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
     tiempos = [0] + [calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
-
     try:
         tae = calcular_tae(cuotas_exactas, tiempos)
-        st.write(f"**TAE aproximada:** {tae} %")
     except:
-        st.write("No se pudo calcular la TAE")
+        tae = "Error"
+
+    # Tabla resumen
+    resumen_dict = {
+        "Concepto": ["Duración (meses)", "Intereses (€)"]
+    }
+    resumen_dict["Valor"] = [duracion_meses, round(total_intereses,2)]
+
+    if seguro_tasa > 0:
+        resumen_dict["Concepto"].append("Seguro (€) total")
+        resumen_dict["Valor"].append(round(total_seguro,2))
+        resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
+        resumen_dict["Valor"].append(round(total_con_seguro,2))
+    
+    resumen_dict["Concepto"].append("Coste total (capital + intereses)")
+    resumen_dict["Valor"].append(round(total_capital_intereses,2))
+    resumen_dict["Concepto"].append("TAE aproximada (%)")
+    resumen_dict["Valor"].append(tae)
+
+    df_resumen = pd.DataFrame(resumen_dict)
+    st.subheader("📊 Resumen en tabla")
+    st.table(df_resumen)
 
     # ---------- EXPORTAR EXCEL ----------
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
-        resumen = {
-            "Concepto": ["Coste total (capital + intereses)"],
-            "Importe (€)": [round(total_cuota,2)]
-        }
-        if seguro_tasa > 0:
-            resumen["Concepto"].append("Seguro (€) total")
-            resumen["Importe (€)"].append(round(total_seguro,2))
-            resumen["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
-            resumen["Importe (€)"].append(round(total_cuota + total_seguro,2))
-        else:
-            resumen["Concepto"].append("Seguro no contratado")
-            resumen["Importe (€)"].append(0)
-        try:
-            resumen["Concepto"].append("TAE aproximada (%)")
-            resumen["Importe (€)"].append(tae)
-        except:
-            pass
-        df_resumen = pd.DataFrame(resumen)
         df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
 
     excel_data = output.getvalue()
