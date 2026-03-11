@@ -146,14 +146,14 @@ if st.button("Calcular"):
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
 
-    if seguro_tasa > 0:
-        total_seguro = tabla["Seguro (€)"].sum()
-        st.metric("Total seguro (€)", round(total_seguro,2))
-        st.write(f"**Coste total a pagar con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
-    else:
-        st.write("**Seguro no contratado**")
-
+    # -------- COSTE TOTAL AL FINAL --------
     st.write(f"**Coste total (capital + intereses):** {round(total_cuota,2)} €")
+    
+    if seguro_tasa == 0:
+        st.write("**Seguro no contratado**")
+    else:
+        total_seguro = tabla["Seguro (€)"].sum()
+        st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
 
     # -------- EXPORTAR EXCEL --------
     output = BytesIO()
