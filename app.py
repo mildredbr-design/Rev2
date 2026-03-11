@@ -3,7 +3,6 @@ import pandas as pd
 from io import BytesIO
 from datetime import datetime, date
 import calendar
-import numpy as np
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador de Préstamo Revolving con Seguro Opcional y TAE")
@@ -41,15 +40,13 @@ def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
             base = dias_ano(fecha_actual)
             interes_total += capital * (tin/100) * dias / base
             fecha_actual = date(fecha_actual.year + 1, 1, 1)
-    return round(interes_total, 2)
+    return interes_total  # sin redondear para TAE
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
-
     saldo = capital
-    cuota = capital * (cuota_porcentaje / 100)  # usar sin redondeo para TAE
+    cuota = capital * (cuota_porcentaje / 100)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
-
     datos = []
     mes = 1
 
@@ -58,7 +55,6 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         dias = (fecha_pago - fecha_anterior).days
         seguro = (saldo + interes) * seguro_tasa if seguro_tasa > 0 else 0.0
 
-        # Último recibo
         if saldo + interes <= cuota:
             cuota_final = saldo + interes
             amort = saldo
@@ -81,9 +77,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             break
 
         amort = cuota - interes
-        saldo = saldo - amort
+        saldo -= amort
         recibo_total = cuota + seguro
-
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
@@ -105,18 +100,45 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
     return pd.DataFrame(datos)
 
-# -------- INPUTS --------
+# ---------- FUNCIONES TAE ----------
+def truncar_decimal(valor, decimales):
+    factor = 10 ** decimales
+    return int(valor * factor) / factor
+
+def redondear_decimal(valor, decimales=6):
+    return round(valor, decimales)
+
+def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha_vencimiento, dias_ano_base):
+    fecha_financiacion = pd.to_datetime(fecha_financiacion)
+    fecha_vencimiento = pd.to_datetime(fecha_vencimiento)
+    dias_ano_actual = 366 if calendar.isleap(fecha_vencimiento.year) else 365
+    fraccion_año = (fecha_vencimiento - fecha_financiacion).days / dias_ano_base
+    return truncar_decimal(fraccion_año, 7)
+
+def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=1000):
+    # TAE inicial aproximada
+    tae = (1 + 0.2179/12)**12 - 1
+    van_lista = []
+    for _ in range(max_iter):
+        van_lista.clear()
+        for i in range(len(cuotas)):
+            van_lista.append(cuotas[i] / ((1 + tae) ** tiempos[i]))
+        if abs(sum(van_lista)) < tolerancia:
+            return redondear_decimal(tae * 100)
+        if sum(van_lista) < 0:
+            tae -= 0.0001
+        else:
+            tae += 0.0001
+    return redondear_decimal(tae * 100)
+
+# ---------- INPUTS ----------
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 1000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
 cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
-seguro_str = st.selectbox(
-    "Seguro mensual sobre saldo pendiente + interés",
-    ["No", "Un titular", "Dos titulares"]
-)
-
+seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", ["No", "Un titular", "Dos titulares"])
 if seguro_str == "No":
     seguro_tasa = 0
 elif seguro_str == "Un titular":
@@ -124,16 +146,14 @@ elif seguro_str == "Un titular":
 else:
     seguro_tasa = 0.0104
 
-# -------- CALCULO --------
+# ---------- CALCULO ----------
 if st.button("Calcular"):
-
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
     st.subheader("📊 Resumen")
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
-
     col1, col2, col3 = st.columns(3)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
@@ -146,134 +166,20 @@ if st.button("Calcular"):
         total_seguro = tabla["Seguro (€)"].sum()
         st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
 
-    # -------- CALCULO TAE USANDO FLUJOS EXACTOS --------
-#!
+    # ---------- CÁLCULO TAE CON TU FUNCION ----------
+    cuotas_exactas = list(tabla["Recibo total exacto"].values)
+    tiempos = []
+    for i in range(len(cuotas_exactas)):
+        tiempo_i = calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, tabla["Fecha recibo"].iloc[i], 365)
+        tiempos.append(tiempo_i)
 
-'''Programa para la simulación de los productos amortizables de COF_ES'''
+    try:
+        tae = calcular_tae(cuotas_exactas, tiempos)
+        st.write(f"**TAE aproximada:** {tae} %")
+    except:
+        st.write("No se pudo calcular la TAE")
 
- 
-
-import calendar
-
-import pandas as pd
-
-import bin.COFES___tools as tools
-
- 
-
-''' Definir funciones asociadas al cálculo de la TAE '''
-
- 
-
-def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion,
-
-                                                       w_fecha_ultimo_vencimiento_tratado,
-
-                                                       w_dia_año):
-
- 
-
-    '''Conversión de las fecha de entrada al formato timestamp de Pandas'''
-
-    fecha_financiacion = pd.to_datetime(fecha_financiacion)
-
-    w_fecha_ultimo_vencimiento_tratado = pd.to_datetime(w_fecha_ultimo_vencimiento_tratado)
-
-   
-
-    '''Función para calcular la fracción del año entre la fecha de financiación y el vencimiento tratado'''
-
-    w_dia_año_anterior = 366 if calendar.isleap(w_fecha_ultimo_vencimiento_tratado.year - 1) else 365
-
-    w_dia_año_anterior = w_dia_año if pd.to_datetime(w_fecha_ultimo_vencimiento_tratado).year ==  pd.to_datetime(fecha_financiacion).year else w_dia_año_anterior
-
-    delta_años = 0 if (w_fecha_ultimo_vencimiento_tratado.year - fecha_financiacion.year + 1) < 1 else w_fecha_ultimo_vencimiento_tratado.year - fecha_financiacion.year + 1
-
-    w_aniversario_fecha_financiación = fecha_financiacion + pd.DateOffset(years=delta_años)
-
-   
-
-    if w_dia_año != w_dia_año_anterior and w_fecha_ultimo_vencimiento_tratado < w_aniversario_fecha_financiación:
-
-        delta_años = delta_años - 2 if delta_años > 1 else 0
-
-        w_aniversario_fecha_financiación += pd.DateOffset(years=-1)
-
-        fraccion_año = (delta_años + ((w_dia_año_anterior - pd.to_datetime(w_aniversario_fecha_financiación).dayofyear) / w_dia_año_anterior) 
-
-                       + ((pd.to_datetime(w_fecha_ultimo_vencimiento_tratado).dayofyear) / w_dia_año))
-
-    elif w_fecha_ultimo_vencimiento_tratado > w_aniversario_fecha_financiación:
-
-        fraccion_año = (0 if delta_años < 1 else delta_años) + ((pd.to_datetime(w_fecha_ultimo_vencimiento_tratado).dayofyear - pd.to_datetime(w_aniversario_fecha_financiación).dayofyear) / w_dia_año)
-
-    else:
-
-        delta_años = delta_años - 1 if delta_años > 1 else 0
-
-        w_aniversario_fecha_financiación += pd.DateOffset(years=-1)
-
-        fraccion_año = delta_años + ((pd.to_datetime(w_fecha_ultimo_vencimiento_tratado).dayofyear - pd.to_datetime(w_aniversario_fecha_financiación).dayofyear) / w_dia_año)
-
- 
-
-    return tools.truncar_decimal(fraccion_año, 7)
-
- 
-
- 
-
- 
-
-def calcular_tae(cuota_tae,
-
-                 tiempo,
-
-                 tasa,
-
-                 van_cuota_tae=[],
-
-                 tolerancia=0.000001,
-
-                 max_iteraciones=1000):
-
- 
-
-    '''Función para calcular la TAE de la operación'''
-
-    tae = (1 + tasa / 1200) ** 12 - 1 # TAE inicial aproximada
-
-    for _ in range(max_iteraciones):
-
-        van_cuota_tae.clear()
-
-        for i in range(len(cuota_tae)):
-
-            van_cuota_tae.append(cuota_tae[i] / ((1 + tae) ** tiempo[i]))
-
-           
-
-        if abs(sum(van_cuota_tae)) < tolerancia:  # Comprueba si el VAN está dentro de la tolerancia
-
-            return tools.redondear_decimal(tae * 100)
-
-       
-
-        if sum(van_cuota_tae) < 0:
-
-            tae -= 0.0001
-
-        else:
-
-            tae += 0.0001
-
-       
-
-    return tools.redondear_decimal(tae * 100)
-
- 
-
-    # -------- EXPORTAR EXCEL CON RESUMEN --------
+    # ---------- EXPORTAR EXCEL CON RESUMEN ----------
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
@@ -289,7 +195,7 @@ def calcular_tae(cuota_tae,
             resumen["Importe (€)"].append(round(total_cuota + total_seguro,2))
         try:
             resumen["Concepto"].append("TAE aproximada (%)")
-            resumen["Importe (€)"].append(round(tae*100,2))
+            resumen["Importe (€)"].append(tae)
         except:
             pass
         df_resumen = pd.DataFrame(resumen)
