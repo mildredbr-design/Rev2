@@ -41,24 +41,22 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            # Tramo diciembre: 2-31 diciembre = 29 días exactos
-            dias_dic = 29
+            dias_dic = 29  # 2-31 diciembre
             base_dic = 366 if bisiesto_prev else 365
             interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
-            # Tramo enero: 1 enero hasta fecha_fin
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
-            interes_total = round(interes_diciembre + interes_enero, 2)
+            interes_total = float(f"{interes_diciembre + interes_enero:.2f}")
             return interes_total, interes_diciembre, interes_enero
 
     # Mes normal
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
-    return interes_total, 0.0, round(interes_total, 2)
+    return float(interes_total), 0.0, float(interes_total)
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
