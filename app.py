@@ -25,49 +25,40 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-def interes_tramos_cambio_anio_preciso(capital, tin, fecha_inicio, fecha_fin):
+def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses en cambios de año bisiesto/no bisiesto:
-        - Cambio bisiesto → no bisiesto: 2 dic → 31 dic (base 366), 1 ene → 2 ene (base 365)
-        - Cambio no bisiesto → bisiesto: 2 dic → 31 dic (base 365), 1 ene → 2 ene (base 366)
-    Intereses intermedios con 5 decimales, suma final redondeada a 2 decimales.
+    Calcula intereses exactos de un recibo.
+    - Tramos de cambio de año bisiesto/no bisiesto ajustados
+    - Intermedio 5 decimales, suma final redondeada a 2 decimales
     """
     interes_total = 0.0
     fecha_actual = fecha_inicio
-
     while fecha_actual < fecha_fin:
-        # Detectar si se cruza cambio de año
+        fin_tramo = fecha_fin
+        base = dias_ano(fecha_actual)
+
+        # Caso específico: cambio de año
         if fecha_actual.month == 12 and fecha_actual.day >= 2 and fecha_fin.year != fecha_actual.year:
-            # Cambio de año
+            # Tramo diciembre
+            fin_tramo = date(fecha_actual.year, 12, 31)
             if calendar.isleap(fecha_actual.year) and not calendar.isleap(fecha_fin.year):
-                base_dic = 366
-                base_ene = 365
+                base = 366
             elif not calendar.isleap(fecha_actual.year) and calendar.isleap(fecha_fin.year):
-                base_dic = 365
-                base_ene = 366
-            else:
-                base_dic = dias_ano(fecha_actual)
-                base_ene = dias_ano(fecha_fin)
+                base = 365
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
+            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
 
-            # 2 dic → 31 dic
-            fin_dic = date(fecha_actual.year, 12, 31)
-            dias_dic = (fin_dic - fecha_actual).days + 1
-            interes_total += round(capital * (tin / 100) * dias_dic / base_dic, 5)
-
-            # 1 ene → 2 ene
-            inicio_ene = date(fecha_fin.year, 1, 1)
-            fin_ene = fecha_fin - timedelta(days=1)
-            dias_ene = (fin_ene - inicio_ene).days + 1
-            interes_total += round(capital * (tin / 100) * dias_ene / base_ene, 5)
-
-            break
-        else:
-            # Tramo normal
-            dias_tramo = (fecha_fin - fecha_actual).days
+            # Tramo enero
+            fecha_actual = date(fecha_fin.year, 1, 1)
+            fin_tramo = fecha_fin - timedelta(days=1)
             base = dias_ano(fecha_actual)
+            dias_tramo = (fin_tramo - fecha_actual).days + 1
             interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
             break
-
+        else:
+            dias_tramo = (fecha_fin - fecha_actual).days
+            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
+            break
     return round(interes_total, 2)
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -79,7 +70,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = interes_tramos_cambio_anio_preciso(saldo, tin, fecha_anterior, fecha_pago)
+        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
