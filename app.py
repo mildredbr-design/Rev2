@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date, timedelta
+from datetime import datetime, date
 import calendar
 from decimal import Decimal, ROUND_HALF_UP, getcontext
+from io import BytesIO
 
 getcontext().prec = 10
 
@@ -156,19 +157,17 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
 
 def calcular_tae(cuotas, fechas):
 
-    tiempos = [0.0]
+    tiempos=[0.0]
 
     for i in range(1,len(fechas)):
+        f0=pd.to_datetime(fechas[i-1]).date()
+        f1=pd.to_datetime(fechas[i]).date()
 
-        f0 = pd.to_datetime(fechas[i-1]).date()
-        f1 = pd.to_datetime(fechas[i]).date()
-
-        fraccion = (f1 - f0).days / dias_ano(f0)
-
-        tiempos.append(tiempos[-1] + fraccion)
+        fraccion=(f1-f0).days/dias_ano(f0)
+        tiempos.append(tiempos[-1]+fraccion)
 
     def van(tasa):
-        return sum(c / ((1+tasa)**t) for c,t in zip(cuotas,tiempos))
+        return sum(c/((1+tasa)**t) for c,t in zip(cuotas,tiempos))
 
     minimo=-0.9999
     maximo=10
@@ -194,23 +193,29 @@ def calcular_tae(cuotas, fechas):
 
 vitesse_valores=[2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
 
-tipo_calculo = st.selectbox("Tipo de cálculo",["Vitesse","Cuota","Duración"])
+capital = st.number_input("Importe de financiación (€)",0.0,1000000.0,6000.0)
 
-capital = st.number_input("Capital inicial (€)",0.0,1000000.0,6000.0)
 tin = st.number_input("TIN anual (%)",0.0,100.0,21.79)
+
 fecha_inicio = st.date_input("Fecha de financiación",datetime.today())
 
-if tipo_calculo == "Vitesse":
+tipo_calculo = st.selectbox(
+    "Tipo de cálculo",
+    ["Seleccionar","Vitesse","Cuota","Duración"]
+)
 
-    valor = st.selectbox("Vitesse (%)",vitesse_valores)
+valor=None
 
-elif tipo_calculo == "Cuota":
+if tipo_calculo=="Vitesse":
+
+    valor=st.selectbox("Vitesse (%)",vitesse_valores)
+
+elif tipo_calculo=="Cuota":
 
     opciones_cuota=[round(capital*v/100,2) for v in vitesse_valores]
+    valor=st.selectbox("Cuota mensual (€)",opciones_cuota)
 
-    valor = st.selectbox("Cuota mensual (€)",opciones_cuota)
-
-elif tipo_calculo == "Duración":
+elif tipo_calculo=="Duración":
 
     opciones_duracion=[]
     mapa_vitesse={}
@@ -224,14 +229,18 @@ elif tipo_calculo == "Duración":
         meses=len(tabla_test)
 
         etiqueta=f"{meses} meses"
-
         opciones_duracion.append(etiqueta)
+
         mapa_vitesse[etiqueta]=v
 
     seleccion=st.selectbox("Duración del préstamo",opciones_duracion)
 
     valor=mapa_vitesse[seleccion]
     tipo_calculo="Vitesse"
+
+# ---------------------------------------------------------
+# SEGURO
+# ---------------------------------------------------------
 
 opciones_seguro={
 "No":0,
@@ -250,7 +259,7 @@ seguro_tasa=opciones_seguro[seguro_str]
 # RESULTADOS
 # ---------------------------------------------------------
 
-if st.button("Calcular"):
+if st.button("Calcular") and valor is not None:
 
     tabla=simulador(capital,tin,tipo_calculo,valor,fecha_inicio,seguro_tasa)
 
@@ -286,3 +295,22 @@ if st.button("Calcular"):
 
     st.subheader("Resumen")
     st.table(df_resumen)
+
+    # ---------------------------------------------------------
+    # EXPORTAR A EXCEL
+    # ---------------------------------------------------------
+
+    output=BytesIO()
+    with pd.ExcelWriter(output,engine="xlsxwriter") as writer:
+
+        tabla.to_excel(writer,sheet_name="Cuadro Amortización",index=False)
+        df_resumen.to_excel(writer,sheet_name="Resumen",index=False)
+
+    excel_data=output.getvalue()
+
+    st.download_button(
+        label="📥 Descargar cuadro de amortización en Excel",
+        data=excel_data,
+        file_name="simulacion_revolving.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
