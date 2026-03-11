@@ -40,7 +40,7 @@ def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
             base = dias_ano(fecha_actual)
             interes_total += capital * (tin/100) * dias / base
             fecha_actual = date(fecha_actual.year + 1, 1, 1)
-    return interes_total  # sin redondear para TAE
+    return interes_total
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
@@ -72,7 +72,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Saldo (€)": round(saldo,2),
                 "Seguro (€)": round(seguro,2),
                 "Recibo total (€)": round(recibo_total,2),
-                "Recibo total exacto": cuota_final  # PARA TAE SOLO CAPITAL+INTERES
+                "Recibo total exacto": cuota_final
             })
             break
 
@@ -89,7 +89,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Saldo (€)": round(saldo,2),
             "Seguro (€)": round(seguro,2),
             "Recibo total (€)": round(recibo_total,2),
-            "Recibo total exacto": cuota  # PARA TAE SOLO CAPITAL+INTERES
+            "Recibo total exacto": cuota
         })
 
         fecha_anterior = fecha_pago
@@ -130,7 +130,7 @@ def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha
     return fraccion_total
 
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=1000):
-    tae = 0.2179  # inicial aproximada
+    tae = 0.2179
     van_lista = []
     for _ in range(max_iter):
         van_lista.clear()
@@ -167,20 +167,22 @@ if st.button("Calcular"):
     st.subheader("📊 Resumen")
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
+    total_seguro = tabla["Seguro (€)"].sum() if seguro_tasa > 0 else 0.0
+
     col1, col2, col3 = st.columns(3)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
-
+    
     st.write(f"**Coste total (capital + intereses):** {round(total_cuota,2)} €")
     if seguro_tasa == 0:
         st.write("**Seguro no contratado**")
     else:
-        total_seguro = tabla["Seguro (€)"].sum()
+        st.write(f"**Seguro (€) total:** {round(total_seguro,2)} €")
         st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
 
     # ---------- CÁLCULO TAE (SIN SEGURO) ----------
-    cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)  # SIN seguro
+    cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
     tiempos = [0] + [calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
 
     try:
@@ -197,12 +199,14 @@ if st.button("Calcular"):
             "Concepto": ["Coste total (capital + intereses)"],
             "Importe (€)": [round(total_cuota,2)]
         }
-        if seguro_tasa == 0:
-            resumen["Concepto"].append("Seguro no contratado")
-            resumen["Importe (€)"].append(0)
-        else:
+        if seguro_tasa > 0:
+            resumen["Concepto"].append("Seguro (€) total")
+            resumen["Importe (€)"].append(round(total_seguro,2))
             resumen["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
             resumen["Importe (€)"].append(round(total_cuota + total_seguro,2))
+        else:
+            resumen["Concepto"].append("Seguro no contratado")
+            resumen["Importe (€)"].append(0)
         try:
             resumen["Concepto"].append("TAE aproximada (%)")
             resumen["Importe (€)"].append(tae)
