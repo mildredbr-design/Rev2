@@ -32,35 +32,39 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     
     interes_diciembre = 0.0
     interes_enero = 0.0
-    
-    # Detectar si el periodo incluye cambio de año
-    if fecha_inicio.year < fecha_fin.year:
-        # Tramo diciembre: 2 diciembre del año anterior → 31 diciembre
-        inicio_dic = date(fecha_fin.year - 1, 12, 2)
+    interes_total = 0.0
+
+    # Solo si el mes es enero y el año anterior existe -> posible cambio bisiesto
+    if fecha_fin.month == 1:
         fin_dic = date(fecha_fin.year - 1, 12, 31)
+        inicio_dic = date(fecha_fin.year - 1, 12, 2)
         if fecha_inicio <= fin_dic:
+            # Tramo diciembre
             dias_dic = (fin_dic - max(fecha_inicio, inicio_dic)).days + 1
             base_dic = 366 if calendar.isleap(fin_dic.year) else 365
             interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
-        
-        # Tramo enero: 1 enero → fecha_fin
-        inicio_ene = date(fecha_fin.year, 1, 1)
-        dias_ene = (fecha_fin - max(fecha_inicio, inicio_ene)).days + 1
-        base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
-        interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
-        
-        interes_total = round(interes_diciembre + interes_enero, 2)
+
+            # Tramo enero
+            inicio_ene = date(fecha_fin.year, 1, 1)
+            dias_ene = (fecha_fin - max(fecha_inicio, inicio_ene)).days + 1
+            base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
+            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
+
+            interes_total = round(interes_diciembre + interes_enero, 2)
+        else:
+            # No hay cambio de bisiesto, todo normal
+            dias_tramo = (fecha_fin - fecha_inicio).days
+            base = dias_ano(fecha_inicio)
+            interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
     else:
-        # No hay cambio de año
+        # Mes normal
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
         interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
-        interes_enero = interes_total
-        interes_diciembre = 0.0
     
     return interes_total, interes_diciembre, interes_enero
 
-# ---------- SIMULADOR CON COLUMNAS DE TRAMOS ----------
+# ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
     cuota = capital * (cuota_porcentaje / 100)
