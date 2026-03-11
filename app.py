@@ -41,22 +41,24 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            dias_dic = 29  # 2-31 diciembre
+            # Diciembre: del 2 al 31
+            dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
+            interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 5)
 
+            # Enero: 1 hasta fecha_fin
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
-            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
+            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 5)
 
-            interes_total = float(f"{interes_diciembre + interes_enero:.2f}")
+            interes_total = round(interes_diciembre + interes_enero, 2)
             return interes_total, interes_diciembre, interes_enero
 
-    # Mes normal
+    # Mes normal: interés redondeado a 2 decimales
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
-    return float(interes_total), 0.0, float(interes_total)
+    return interes_total, 0.0, interes_total
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -69,15 +71,15 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes, interes_diciembre, interes_enero = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
-        seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
+        interes_total, interes_diciembre, interes_enero = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
+        seguro = round((saldo + interes_total) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
         # Ajuste último recibo
-        if saldo + interes <= cuota:
+        if saldo + interes_total <= cuota:
             amort = saldo
             saldo = 0
-            cuota_final = round(amort + interes, 2)
+            cuota_final = round(amort + interes_total, 2)
             recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
@@ -86,7 +88,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Cuota (€)": cuota_final,
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": round(interes, 2),
+                "Intereses total (€)": interes_total,
                 "Amortización (€)": round(amort, 2),
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
@@ -94,7 +96,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             })
             break
 
-        amort = cuota - interes
+        amort = cuota - interes_total
         saldo -= amort
         recibo_total = round(cuota + seguro, 2)
 
@@ -105,7 +107,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Cuota (€)": round(cuota, 2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes, 2),
+            "Intereses total (€)": interes_total,
             "Amortización (€)": round(amort, 2),
             "Saldo (€)": round(saldo, 2),
             "Seguro (€)": seguro,
@@ -124,9 +126,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, fecha_fin):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-    dias_totales = (fecha_fin - fecha_inicio).days
     fraccion_total = 0.0
-    for i in range(dias_totales):
+    for i in range((fecha_fin - fecha_inicio).days):
         dia = fecha_inicio + timedelta(days=i)
         fraccion_total += 1 / (366 if calendar.isleap(dia.year) else 365)
     return fraccion_total
@@ -137,7 +138,6 @@ def redondear_decimal(valor, decimales=6):
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
     tae = 0.2179
     van_lista = []
-
     for _ in range(max_iter):
         van_lista.clear()
         for i in range(len(cuotas)):
@@ -174,11 +174,11 @@ seguro_tasa = opciones_seguro[seguro_str]
 if st.button("Calcular"):
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
 
-    # Forzar dos decimales exactos para mostrar en Streamlit
+    # Forzar visualización 2 decimales
     tabla_mostrar = tabla.copy()
-    tabla_mostrar["Intereses diciembre (€)"] = tabla_mostrar["Intereses diciembre (€)"].map("{:.2f}".format)
-    tabla_mostrar["Intereses enero (€)"] = tabla_mostrar["Intereses enero (€)"].map("{:.2f}".format)
-    tabla_mostrar["Intereses total (€)"] = tabla_mostrar["Intereses total (€)"].map("{:.2f}".format)
+    for col in ["Intereses diciembre (€)", "Intereses enero (€)", "Intereses total (€)", "Cuota (€)", "Recibo total (€)"]:
+        tabla_mostrar[col] = tabla_mostrar[col].map("{:.2f}".format)
+
     st.dataframe(tabla_mostrar, use_container_width=True)
 
     duracion_meses = len(tabla)
@@ -190,20 +190,16 @@ if st.button("Calcular"):
     total_con_seguro = round(total_capital_intereses + total_seguro, 2)
 
     cuotas_exactas = [-capital] + list(tabla["Recibo total (€)"].values)
-    tiempos = [0] + [
-        calcular_fraccion_entre_financiacion_y_vencimiento(
-            fecha_inicio,
-            f.date() if isinstance(f, pd.Timestamp) else f
-        )
-        for f in tabla["Fecha recibo"]
-    ]
+    tiempos = [0] + [calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
 
     try:
         tae = calcular_tae(cuotas_exactas, tiempos)
     except:
         tae = "Error"
 
-    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses totales (€)", "Intereses diciembre (€)", "Intereses enero (€)"]}
+    resumen_dict = {
+        "Concepto": ["Duración (meses)", "Intereses totales (€)", "Intereses diciembre (€)", "Intereses enero (€)"]
+    }
     resumen_valores = [int(duracion_meses), total_intereses, total_intereses_diciembre, total_intereses_enero]
 
     if seguro_tasa > 0:
@@ -218,7 +214,6 @@ if st.button("Calcular"):
     resumen_valores.append(round(tae, 2) if isinstance(tae, float) else tae)
 
     df_resumen = pd.DataFrame({"Concepto": resumen_dict["Concepto"], "Valor": resumen_valores})
-
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
 
@@ -226,7 +221,6 @@ if st.button("Calcular"):
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         tabla.to_excel(writer, index=False, sheet_name="Amortización")
         df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
-
     excel_data = output.getvalue()
     st.download_button(
         label="📥 Descargar Excel con resumen",
