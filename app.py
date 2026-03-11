@@ -27,13 +27,13 @@ def siguiente_recibo(fecha):
 
 # ---------- INTERESES EXACTOS POR TRAMOS ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
-    """
-    Calcula intereses exactos de un recibo.
-    Ajuste especial solo si diciembre cambia bisiesto/no bisiesto y el recibo cae en enero.
-    """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
+    # Inicializamos tramos
+    interes_diciembre = 0.0
+    interes_enero = 0.0
+
     # Caso especial: enero tras diciembre
     if fecha_inicio.month == 1 and fecha_anterior is not None and fecha_anterior.month == 12:
         # Tramo diciembre: 2 diciembre → 31 diciembre
@@ -41,25 +41,25 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
         fin_dic = date(fecha_anterior.year, 12, 31)
         dias_dic = (fin_dic - inicio_dic).days + 1
         base_dic = 366 if calendar.isleap(inicio_dic.year) else 365
-        interes_dic = capital * (tin / 100) * dias_dic / base_dic
+        interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
         # Tramo enero: 1 enero → fecha_fin
         inicio_ene = date(fecha_fin.year, 1, 1)
         dias_ene = (fecha_fin - inicio_ene).days + 1
         base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
-        interes_ene = capital * (tin / 100) * dias_ene / base_ene
+        interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
-        interes_total = interes_dic + interes_ene
-        ajuste_bisiesto = round(interes_total - (capital * (tin / 100) * (fecha_fin - fecha_inicio).days / dias_ano(fecha_inicio)), 2)
+        interes_total = interes_diciembre + interes_enero
     else:
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
-        interes_total = capital * (tin / 100) * dias_tramo / base
-        ajuste_bisiesto = 0.0
+        interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
+        interes_enero = interes_total
+        interes_diciembre = 0.0
 
-    return round(interes_total, 2), ajuste_bisiesto
+    return interes_total, interes_diciembre, interes_enero
 
-# ---------- SIMULADOR CON AJUSTE BISIESTO ----------
+# ---------- SIMULADOR CON COLUMNAS DE TRAMOS ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
     cuota = capital * (cuota_porcentaje / 100)
@@ -70,7 +70,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes, ajuste_bisiesto = interes_preciso(saldo, tin, fecha_anterior, fecha_pago, fecha_anterior)
+        interes, interes_diciembre, interes_enero = interes_preciso(saldo, tin, fecha_anterior, fecha_pago, fecha_anterior)
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
@@ -86,13 +86,12 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Fecha recibo": fecha_pago,
                 "Capital pendiente (€)": round(capital_pendiente, 2),
                 "Cuota (€)": cuota_final,
-                "Intereses (€)": interes,
-                "Intereses ajuste bisiesto (€)": ajuste_bisiesto,
+                "Intereses diciembre (€)": interes_diciembre,
+                "Intereses enero (€)": interes_enero,
                 "Amortización (€)": amort,
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
-                "Recibo total (€)": recibo_total,
-                "Recibo total exacto": cuota_final
+                "Recibo total (€)": recibo_total
             })
             break
 
@@ -105,13 +104,12 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Fecha recibo": fecha_pago,
             "Capital pendiente (€)": round(capital_pendiente, 2),
             "Cuota (€)": round(cuota, 2),
-            "Intereses (€)": interes,
-            "Intereses ajuste bisiesto (€)": ajuste_bisiesto,
+            "Intereses diciembre (€)": interes_diciembre,
+            "Intereses enero (€)": interes_enero,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
             "Seguro (€)": seguro,
-            "Recibo total (€)": recibo_total,
-            "Recibo total exacto": round(cuota, 2)
+            "Recibo total (€)": recibo_total
         })
 
         fecha_anterior = fecha_pago
@@ -178,13 +176,14 @@ if st.button("Calcular"):
     st.dataframe(tabla, use_container_width=True)
 
     duracion_meses = len(tabla)
-    total_intereses = round(tabla["Intereses (€)"].sum(), 2)
-    total_ajuste_bisiesto = round(tabla["Intereses ajuste bisiesto (€)"].sum(), 2)
+    total_intereses = round(tabla["Intereses enero (€)"].sum() + tabla["Intereses diciembre (€)"].sum(), 2)
+    total_intereses_diciembre = round(tabla["Intereses diciembre (€)"].sum(), 2)
+    total_intereses_enero = round(tabla["Intereses enero (€)"].sum(), 2)
     total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0.0
     total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
     total_con_seguro = round(total_capital_intereses + total_seguro, 2)
 
-    cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
+    cuotas_exactas = [-capital] + list(tabla["Recibo total (€)"].values)
     tiempos = [0] + [
         calcular_fraccion_entre_financiacion_y_vencimiento(
             fecha_inicio,
@@ -198,8 +197,8 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses (€)", "Intereses ajuste bisiesto (€)"]}
-    resumen_valores = [int(duracion_meses), total_intereses, total_ajuste_bisiesto]
+    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses totales (€)", "Intereses diciembre (€)", "Intereses enero (€)"]}
+    resumen_valores = [int(duracion_meses), total_intereses, total_intereses_diciembre, total_intereses_enero]
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
