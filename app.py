@@ -161,7 +161,7 @@ if st.button("Calcular"):
     st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
 
     # Valores resumen
-    duracion_meses = int(len(tabla))  # <-- aseguramos entero
+    duracion_meses = len(tabla)
     total_intereses = round(tabla["Intereses (€)"].sum(),2)
     total_seguro = round(tabla["Seguro (€)"].sum(),2) if seguro_tasa > 0 else 0.0
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
@@ -175,24 +175,28 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    # Tabla resumen con formato de decimales
+    # Tabla resumen con duración como entero
     resumen_dict = {
         "Concepto": ["Duración (meses)", "Intereses (€)"]
     }
-    resumen_dict["Valor"] = [duracion_meses, total_intereses]
+    resumen_valores = [int(duracion_meses), total_intereses]  # <-- Duración como entero
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
-        resumen_dict["Valor"].append(total_seguro)
+        resumen_valores.append(total_seguro)
         resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
-        resumen_dict["Valor"].append(total_con_seguro)
-    
-    resumen_dict["Concepto"].append("Coste total (capital + intereses)")
-    resumen_dict["Valor"].append(total_capital_intereses)
-    resumen_dict["Concepto"].append("TAE aproximada (%)")
-    resumen_dict["Valor"].append(round(tae,2) if isinstance(tae,float) else tae)
+        resumen_valores.append(total_con_seguro)
 
-    df_resumen = pd.DataFrame(resumen_dict)
+    resumen_dict["Concepto"].append("Coste total (capital + intereses)")
+    resumen_valores.append(total_capital_intereses)
+    resumen_dict["Concepto"].append("TAE aproximada (%)")
+    resumen_valores.append(round(tae,2) if isinstance(tae,float) else tae)
+
+    df_resumen = pd.DataFrame({
+        "Concepto": resumen_dict["Concepto"],
+        "Valor": resumen_valores
+    })
+
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
 
