@@ -4,11 +4,10 @@ from datetime import datetime, date, timedelta
 import calendar
 from decimal import Decimal, ROUND_HALF_UP, getcontext
 
-# Ajustamos precisión decimal
 getcontext().prec = 10
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving desde cero con TAE exacta y intereses precisos")
+st.title("💳 Simulador Revolving desde cero con TAE exacta y tipos de cálculo")
 
 # -------------------------------
 # FUNCIONES AUXILIARES
@@ -29,7 +28,7 @@ def siguiente_recibo(fecha):
     return date(fecha.year, fecha.month + 1, 2)
 
 # -------------------------------
-# INTERES MENSUAL PRECISO
+# INTERESES
 # -------------------------------
 def calcular_interes(capital, tin, inicio, fin):
     capital = Decimal(str(capital))
@@ -37,46 +36,50 @@ def calcular_interes(capital, tin, inicio, fin):
     inicio = pd.to_datetime(inicio).date()
     fin = pd.to_datetime(fin).date()
 
-    # Detectamos cambio de año bisiesto
+    # Cambio bisiesto
     if fin.month == 1 and inicio.year < fin.year:
         prev_year = inicio.year
         next_year = fin.year
         bisiesto_prev = calendar.isleap(prev_year)
         bisiesto_next = calendar.isleap(next_year)
         if bisiesto_prev != bisiesto_next:
-            # Diciembre
             dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
             interes_dic = (capital * tin_decimal * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
-            # Enero
-            dias_ene = (fin - date(next_year, 1, 1)).days + 1
+            dias_ene = (fin - date(next_year,1,1)).days + 1
             base_ene = 366 if bisiesto_next else 365
             interes_ene = (capital * tin_decimal * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
             total = (interes_dic + interes_ene).quantize(Decimal("0.00001"))
             return total, interes_dic, interes_ene
 
-    # Mes normal
     dias_tramo = (fin - inicio).days
     base = dias_ano(inicio)
     total = (capital * tin_decimal * Decimal(dias_tramo) / Decimal(base)).quantize(Decimal("0.00001"))
     return total, Decimal("0.0"), total
 
 # -------------------------------
-# SIMULADOR COMPLETO
+# SIMULADOR
 # -------------------------------
-def simulador(capital, tin, cuota_pct, fecha_inicio, seguro_tasa=0):
-    saldo = Decimal(str(capital))
-    cuota = (Decimal(str(capital)) * Decimal(str(cuota_pct)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
+def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
+    capital = Decimal(str(capital))
+    seguro_tasa = Decimal(str(seguro_tasa))
+    saldo = capital
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
     mes = 1
-    seguro_tasa = Decimal(str(seguro_tasa))
+
+    # Según tipo de cálculo, definimos la cuota
+    if tipo_calculo == "Vitesse":
+        cuota = (capital * Decimal(str(valor)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    elif tipo_calculo == "Cuota":
+        cuota = Decimal(str(valor)).quantize(Decimal("0.01"), ROUND_HALF_UP)
+    else:  # Duración
+        meses = int(valor)
+        cuota = (capital / Decimal(meses)).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
     while saldo > 0:
         interes_total, interes_dic, interes_ene = calcular_interes(saldo, tin, fecha_anterior, fecha_pago)
-
-        # Redondeo final para mostrar
         interes_total_mostrar = interes_total.quantize(Decimal("0.01"), ROUND_HALF_UP)
         interes_dic_mostrar = interes_dic.quantize(Decimal("0.01"), ROUND_HALF_UP)
         interes_ene_mostrar = interes_ene.quantize(Decimal("0.01"), ROUND_HALF_UP)
@@ -115,7 +118,7 @@ def simulador(capital, tin, cuota_pct, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # -------------------------------
-# CALCULO TAE EXACTA
+# CALCULO TAE
 # -------------------------------
 def calcular_tae(cuotas, fechas):
     tiempos = [0.0]
@@ -162,8 +165,16 @@ def calcular_tae(cuotas, fechas):
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
-opciones = [2.7,3,3.5,4,5,6,7,8,9]
-cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
+
+tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"])
+
+# Campo dinámico según tipo
+if tipo_calculo == "Vitesse":
+    valor = st.number_input("Porcentaje de reembolso mensual (%)", 0.1, 100.0, 5.0)
+elif tipo_calculo == "Cuota":
+    valor = st.number_input("Cuota mensual (€)", 1.0, 1000000.0, 300.0)
+else:
+    valor = st.number_input("Duración en meses", 1, 600, 36)
 
 opciones_seguro = {
     "No": 0,
@@ -178,7 +189,7 @@ seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", lis
 seguro_tasa = opciones_seguro[seguro_str]
 
 if st.button("Calcular"):
-    tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
+    tabla = simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa)
     st.dataframe(tabla, use_container_width=True)
 
     total_intereses = round(tabla["Intereses total (€)"].sum(),2)
