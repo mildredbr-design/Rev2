@@ -147,13 +147,19 @@ fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
 cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
-seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", ["No", "Un titular", "Dos titulares"])
-if seguro_str == "No":
-    seguro_tasa = 0
-elif seguro_str == "Un titular":
-    seguro_tasa = 0.0061
-else:
-    seguro_tasa = 0.0104
+# ---------- SEGURO ----------
+opciones_seguro = {
+    "No": 0,
+    "Un titular Light": 0.0035,
+    "Un titular Full/Senior": 0.0061,
+    "Dos titulares Full/Full": 0.0104,
+    "Dos titulares Senior/Senior": 0.0104,
+    "Dos titulares Light/Light": 0.0059,
+    "Dos titulares Full/Light": 0.0082
+}
+
+seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", list(opciones_seguro.keys()))
+seguro_tasa = opciones_seguro[seguro_str]
 
 # ---------- CALCULO ----------
 if st.button("Calcular"):
@@ -179,7 +185,7 @@ if st.button("Calcular"):
     resumen_dict = {
         "Concepto": ["Duración (meses)", "Intereses (€)"]
     }
-    resumen_valores = [int(duracion_meses), total_intereses]  # <-- Duración como entero
+    resumen_valores = [int(duracion_meses), total_intereses]
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
