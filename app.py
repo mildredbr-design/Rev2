@@ -28,9 +28,9 @@ def siguiente_recibo(fecha):
 # ---------- FUNCION EXACTA DE INTERESES ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses exactos de un recibo entre fecha_inicio y fecha_fin.
-    - Si el tramo cruza varios años (bisiesto y no bisiesto), divide por año.
-    - Capital * TIN * (días del tramo en el año / base del año)
+    Calcula intereses exactos entre fecha_inicio y fecha_fin.
+    - Divide el tramo por años si cruza bisiesto / no bisiesto.
+    - Suma fracciones de interés sin redondear, solo al final.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
@@ -38,15 +38,18 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 
     actual = fecha_inicio
     while actual < fecha_fin:
+        # Fin del año actual o fecha_fin - 1
         fin_año_actual = date(actual.year, 12, 31)
-        # El tramo termina a la fecha_fin si es antes de fin de año
         tramo_fin = min(fin_año_actual, fecha_fin - timedelta(days=1))
         dias_tramo = (tramo_fin - actual).days + 1
         base = 366 if calendar.isleap(actual.year) else 365
+
+        # Sumar interés sin redondeo
         interes_total += capital * (tin / 100) * dias_tramo / base
+
         actual = tramo_fin + timedelta(days=1)
 
-    return round(interes_total, 2)
+    return round(interes_total, 2)  # solo aquí se redondea
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
