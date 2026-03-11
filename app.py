@@ -233,17 +233,3 @@ if st.button("Calcular"):
     df_resumen = pd.DataFrame(resumen_dict)
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
-
-    # ---------------------------------------------------------
-    # TABLA DETALLE TAE
-    # ---------------------------------------------------------
-
-    tabla_tae = pd.DataFrame({
-        "Fecha": fechas_tae,
-        "Cuota (sin seguro) (€)": cuotas_tae,
-        "Tiempo (años)": [round(t,5) for t in tiempos_exactos],
-        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, tiempos_exactos)]
-    })
-
-    st.subheader("📈 Detalle cálculo TAE mes a mes")
-    st.dataframe(tabla_tae, use_container_width=True)
