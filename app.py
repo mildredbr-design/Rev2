@@ -50,15 +50,16 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
         interes_ene = capital * (tin / 100) * dias_ene / base_ene
 
         interes_total = interes_dic + interes_ene
+        ajuste_bisiesto = round(interes_total - (capital * (tin / 100) * (fecha_fin - fecha_inicio).days / dias_ano(fecha_inicio)), 2)
     else:
-        # Cálculo normal
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
         interes_total = capital * (tin / 100) * dias_tramo / base
+        ajuste_bisiesto = 0.0
 
-    return round(interes_total, 2)
+    return round(interes_total, 2), ajuste_bisiesto
 
-# ---------- SIMULADOR ----------
+# ---------- SIMULADOR CON AJUSTE BISIESTO ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
     cuota = capital * (cuota_porcentaje / 100)
@@ -69,7 +70,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago, fecha_anterior)
+        interes, ajuste_bisiesto = interes_preciso(saldo, tin, fecha_anterior, fecha_pago, fecha_anterior)
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
@@ -86,6 +87,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Capital pendiente (€)": round(capital_pendiente, 2),
                 "Cuota (€)": cuota_final,
                 "Intereses (€)": interes,
+                "Intereses ajuste bisiesto (€)": ajuste_bisiesto,
                 "Amortización (€)": amort,
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
@@ -104,6 +106,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Capital pendiente (€)": round(capital_pendiente, 2),
             "Cuota (€)": round(cuota, 2),
             "Intereses (€)": interes,
+            "Intereses ajuste bisiesto (€)": ajuste_bisiesto,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
             "Seguro (€)": seguro,
@@ -172,10 +175,11 @@ seguro_tasa = opciones_seguro[seguro_str]
 # ---------- CALCULO ----------
 if st.button("Calcular"):
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
-    st.dataframe(tabla.drop(columns=["Recibo total exacto"]), use_container_width=True)
+    st.dataframe(tabla, use_container_width=True)
 
     duracion_meses = len(tabla)
     total_intereses = round(tabla["Intereses (€)"].sum(), 2)
+    total_ajuste_bisiesto = round(tabla["Intereses ajuste bisiesto (€)"].sum(), 2)
     total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0.0
     total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
     total_con_seguro = round(total_capital_intereses + total_seguro, 2)
@@ -194,8 +198,8 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses (€)"]}
-    resumen_valores = [int(duracion_meses), total_intereses]
+    resumen_dict = {"Concepto": ["Duración (meses)", "Intereses (€)", "Intereses ajuste bisiesto (€)"]}
+    resumen_valores = [int(duracion_meses), total_intereses, total_ajuste_bisiesto]
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
@@ -215,7 +219,7 @@ if st.button("Calcular"):
 
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
+        tabla.to_excel(writer, index=False, sheet_name="Amortización")
         df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
 
     excel_data = output.getvalue()
