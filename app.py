@@ -25,22 +25,31 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# ---------- FUNCION EXACTA DE INTERESES DÍA A DÍA ----------
+# ---------- INTERESES PRECISOS ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses exactos día a día entre fecha_inicio y fecha_fin.
-    - Cada día se divide por 365 o 366 según corresponda.
-    - Redondea solo al final.
+    Calcula intereses exactos para un recibo.
+    - Ajusta solo si se cruza diciembre → enero y hay cambio de bisiesto.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-    interes_total = 0.0
+    base = dias_ano(fecha_inicio)
+    dias_tramo = (fecha_fin - fecha_inicio).days
+    interes_total = capital * (tin / 100) * dias_tramo / base
 
-    actual = fecha_inicio
-    while actual <= fecha_fin:
-        base = 366 if calendar.isleap(actual.year) else 365
-        interes_total += capital * (tin / 100) * (1 / base)
-        actual += timedelta(days=1)
+    # Caso especial: cambio de bisiesto
+    if fecha_inicio.month == 12 and fecha_fin.month == 1 and fecha_inicio.year != fecha_fin.year:
+        # Diciembre
+        base_dic = 366 if calendar.isleap(fecha_inicio.year) else 365
+        dias_dic = (date(fecha_inicio.year, 12, 31) - fecha_inicio).days + 1
+        interes_dic = capital * (tin / 100) * dias_dic / base_dic
+
+        # Enero
+        base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
+        dias_ene = (fecha_fin - date(fecha_fin.year, 1, 1)).days
+        interes_ene = capital * (tin / 100) * dias_ene / base_ene
+
+        interes_total = interes_dic + interes_ene
 
     return round(interes_total, 2)
 
@@ -63,10 +72,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             cuota_final = round(saldo + interes, 2)
             amort = round(saldo, 2)
             saldo = 0
-
             if seguro_tasa > 0:
                 seguro = round((amort + interes) * seguro_tasa, 2)
-
             recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
