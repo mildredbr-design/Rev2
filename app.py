@@ -25,34 +25,33 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# ---------- INTERESES EXACTOS AJUSTADOS ----------
+# ---------- INTERESES EXACTOS POR TRAMOS ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
     """
     Calcula intereses exactos de un recibo.
-    Ajuste solo si diciembre cambia bisiesto/no bisiesto y el recibo cae en enero.
-    Redondeo solo al final.
+    Ajuste especial solo si diciembre cambia bisiesto/no bisiesto y el recibo cae en enero.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
-    # Caso especial: enero tras diciembre con posible cambio de bisiesto
+    # Caso especial: enero tras diciembre
     if fecha_inicio.month == 1 and fecha_anterior is not None and fecha_anterior.month == 12:
-        # Diciembre: desde día 2 hasta 31
+        # Tramo diciembre: 2 diciembre → 31 diciembre
         inicio_dic = date(fecha_anterior.year, 12, 2)
-        fin_diciembre = date(fecha_anterior.year, 12, 31)
-        dias_dic = (fin_diciembre - inicio_dic).days + 1
+        fin_dic = date(fecha_anterior.year, 12, 31)
+        dias_dic = (fin_dic - inicio_dic).days + 1
         base_dic = 366 if calendar.isleap(inicio_dic.year) else 365
         interes_dic = capital * (tin / 100) * dias_dic / base_dic
 
-        # Enero: desde 1 hasta fecha_fin
-        inicio_enero = date(fecha_fin.year, 1, 1)
-        dias_ene = (fecha_fin - inicio_enero).days + 1
-        base_ene = 366 if calendar.isleap(inicio_enero.year) else 365
+        # Tramo enero: 1 enero → fecha_fin
+        inicio_ene = date(fecha_fin.year, 1, 1)
+        dias_ene = (fecha_fin - inicio_ene).days + 1
+        base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
         interes_ene = capital * (tin / 100) * dias_ene / base_ene
 
         interes_total = interes_dic + interes_ene
     else:
-        # Cálculo normal para otros meses
+        # Cálculo normal
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
         interes_total = capital * (tin / 100) * dias_tramo / base
