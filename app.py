@@ -25,36 +25,34 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
+# ---------- FUNCION EXACTA DE INTERESES ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
+    """
+    Calcula intereses exactos teniendo en cuenta cambio de año
+    y años bisiestos (365 / 366) igual que en el cálculo de fracción.
+    """
+
     interes_total = 0.0
     fecha_actual = fecha_inicio
+
     while fecha_actual < fecha_fin:
-        fin_tramo = fecha_fin
-        base = dias_ano(fecha_actual)
 
-        if fecha_actual.month == 12 and fecha_actual.day >= 2 and fecha_fin.year != fecha_actual.year:
-            fin_tramo = date(fecha_actual.year, 12, 31)
+        # último día del año actual
+        fin_ano = date(fecha_actual.year, 12, 31)
 
-            if calendar.isleap(fecha_actual.year) and not calendar.isleap(fecha_fin.year):
-                base = 366
-            elif not calendar.isleap(fecha_actual.year) and calendar.isleap(fecha_fin.year):
-                base = 365
+        # fin del tramo (o fecha de pago si ocurre antes)
+        fin_tramo = min(fin_ano, fecha_fin - timedelta(days=1))
 
-            dias_tramo = (fin_tramo - fecha_actual).days + 1
-            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
+        dias_tramo = (fin_tramo - fecha_actual).days + 1
 
-            fecha_actual = date(fecha_fin.year, 1, 1)
-            fin_tramo = fecha_fin - timedelta(days=1)
-            base = dias_ano(fecha_actual)
+        # base del año
+        base = 366 if calendar.isleap(fecha_actual.year) else 365
 
-            dias_tramo = (fin_tramo - fecha_actual).days + 1
-            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
-            break
+        interes_tramo = capital * (tin / 100) * dias_tramo / base
 
-        else:
-            dias_tramo = (fecha_fin - fecha_actual).days
-            interes_total += round(capital * (tin / 100) * dias_tramo / base, 5)
-            break
+        interes_total += round(interes_tramo, 5)
+
+        fecha_actual = fin_tramo + timedelta(days=1)
 
     return round(interes_total, 2)
 
@@ -122,10 +120,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------- FUNCIONES TAE ----------
-def calcular_fraccion_entre_financiacion_y_vencimiento(
-        fecha_financiacion,
-        w_fecha_ultimo_vencimiento_tratado):
-
+def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, w_fecha_ultimo_vencimiento_tratado):
     fecha_financiacion = pd.to_datetime(fecha_financiacion)
     w_fecha_ultimo_vencimiento_tratado = pd.to_datetime(w_fecha_ultimo_vencimiento_tratado)
 
@@ -143,33 +138,24 @@ def calcular_fraccion_entre_financiacion_y_vencimiento(
     w_aniversario_fecha_financiacion = fecha_financiacion + pd.DateOffset(years=delta_años)
 
     if w_dia_año != w_dia_año_anterior and w_fecha_ultimo_vencimiento_tratado < w_aniversario_fecha_financiacion:
-
         delta_años = delta_años - 2 if delta_años > 1 else 0
         w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
-
         fraccion_año = (
             delta_años +
             ((w_dia_año_anterior - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año_anterior) +
             (w_fecha_ultimo_vencimiento_tratado.dayofyear / w_dia_año)
         )
-
     elif w_fecha_ultimo_vencimiento_tratado > w_aniversario_fecha_financiacion:
-
         fraccion_año = (
             (0 if delta_años < 1 else delta_años) +
-            ((w_fecha_ultimo_vencimiento_tratado.dayofyear -
-              w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
+            ((w_fecha_ultimo_vencimiento_tratado.dayofyear - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
         )
-
     else:
-
         delta_años = delta_años - 1 if delta_años > 1 else 0
         w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
-
         fraccion_año = (
             delta_años +
-            ((w_fecha_ultimo_vencimiento_tratado.dayofyear -
-              w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
+            ((w_fecha_ultimo_vencimiento_tratado.dayofyear - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
         )
 
     return round(fraccion_año, 7)
@@ -183,18 +169,14 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
 
     for _ in range(max_iter):
         van_lista.clear()
-
         for i in range(len(cuotas)):
             van_lista.append(cuotas[i]/((1+tae)**tiempos[i]))
-
         if abs(sum(van_lista)) < tolerancia:
             return redondear_decimal(tae*100, 2)
-
         if sum(van_lista) < 0:
             tae -= 0.00001
         else:
             tae += 0.00001
-
     return redondear_decimal(tae*100, 2)
 
 # ---------- INPUTS ----------
@@ -265,7 +247,6 @@ if st.button("Calcular"):
         df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
 
     excel_data = output.getvalue()
-
     st.download_button(
         label="📥 Descargar Excel con resumen",
         data=excel_data,
