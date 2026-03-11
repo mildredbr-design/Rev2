@@ -7,7 +7,7 @@ from decimal import Decimal, getcontext, ROUND_HALF_UP
 # ---------------------------------------------------------
 # CONFIGURACIÓN DECIMAL
 # ---------------------------------------------------------
-getcontext().prec = 12
+getcontext().prec = 12  # precisión suficiente
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
@@ -49,16 +49,16 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
             base_dic = Decimal(366 if bisiesto_prev else 365)
-            interes_diciembre = capital * tin / Decimal('100') * Decimal(dias_dic) / base_dic
+            interes_diciembre = (capital * tin / Decimal('100') * Decimal(dias_dic) / base_dic).quantize(Decimal('0.00001'), ROUND_HALF_UP)
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = Decimal(366 if bisiesto_curr else 365)
-            interes_enero = capital * tin / Decimal('100') * Decimal(dias_ene) / base_ene
-            interes_total = interes_diciembre + interes_enero
+            interes_enero = (capital * tin / Decimal('100') * Decimal(dias_ene) / base_ene).quantize(Decimal('0.00001'), ROUND_HALF_UP)
+            interes_total = (interes_diciembre + interes_enero).quantize(Decimal('0.00001'), ROUND_HALF_UP)
             return interes_total, interes_diciembre, interes_enero
 
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = Decimal(dias_ano(fecha_inicio))
-    interes_total = capital * tin / Decimal('100') * Decimal(dias_tramo) / base
+    interes_total = (capital * tin / Decimal('100') * Decimal(dias_tramo) / base).quantize(Decimal('0.00001'), ROUND_HALF_UP)
     return interes_total, Decimal('0.0'), interes_total
 
 # ---------------------------------------------------------
@@ -66,7 +66,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 # ---------------------------------------------------------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = Decimal(capital)
-    cuota_precisa = (Decimal(capital) * Decimal(cuota_porcentaje)/Decimal('100'))
+    cuota_precisa = (Decimal(capital) * Decimal(cuota_porcentaje)/Decimal('100')).quantize(Decimal('0.00001'), ROUND_HALF_UP)
     tin = Decimal(tin)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
@@ -77,19 +77,18 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         interes_total_preciso, interes_dic, interes_ene = interes_preciso(
             saldo, tin, fecha_anterior, fecha_pago
         )
-        seguro = (saldo + interes_total_preciso) * Decimal(seguro_tasa)
+        seguro = ((saldo + interes_total_preciso) * Decimal(seguro_tasa)).quantize(Decimal('0.00001'), ROUND_HALF_UP)
         capital_pendiente = saldo
 
         if saldo + interes_total_preciso <= cuota_precisa:
             amort = saldo
             saldo = Decimal('0.0')
-            cuota_final = amort + interes_total_preciso
+            cuota_final = (amort + interes_total_preciso).quantize(Decimal('0.00001'), ROUND_HALF_UP)
         else:
-            amort = cuota_precisa - interes_total_preciso
-            saldo -= amort
+            amort = (cuota_precisa - interes_total_preciso).quantize(Decimal('0.00001'), ROUND_HALF_UP)
+            saldo = (saldo - amort).quantize(Decimal('0.00001'), ROUND_HALF_UP)
             cuota_final = cuota_precisa
 
-        # Convertimos a str con quantize para mostrar exactamente 2 decimales
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
