@@ -41,10 +41,12 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            dias_dic = 29  # siempre 2-31 diciembre
+            # Tramo diciembre: 2-31 diciembre = 29 días exactos
+            dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
             interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
+            # Tramo enero: 1 enero hasta fecha_fin
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
@@ -56,7 +58,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
-    return interes_total, 0.0, interes_total
+    return interes_total, 0.0, round(interes_total, 2)
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -75,7 +77,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
         # Ajuste último recibo
         if saldo + interes <= cuota:
-            amort = saldo  # Amortizamos todo el capital pendiente
+            amort = saldo
             saldo = 0
             cuota_final = round(amort + interes, 2)
             recibo_total = round(cuota_final + seguro, 2)
@@ -86,7 +88,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Cuota (€)": cuota_final,
                 "Intereses diciembre (€)": interes_diciembre,
                 "Intereses enero (€)": interes_enero,
-                "Intereses total (€)": interes,
+                "Intereses total (€)": round(interes, 2),
                 "Amortización (€)": round(amort, 2),
                 "Saldo (€)": saldo,
                 "Seguro (€)": seguro,
@@ -105,7 +107,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Cuota (€)": round(cuota, 2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": interes,
+            "Intereses total (€)": round(interes, 2),
             "Amortización (€)": round(amort, 2),
             "Saldo (€)": round(saldo, 2),
             "Seguro (€)": seguro,
