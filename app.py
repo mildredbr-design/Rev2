@@ -173,7 +173,13 @@ seguro_tasa = opciones_seguro[seguro_str]
 # ---------- CALCULO ----------
 if st.button("Calcular"):
     tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
-    st.dataframe(tabla, use_container_width=True)
+
+    # Forzar dos decimales exactos para mostrar en Streamlit
+    tabla_mostrar = tabla.copy()
+    tabla_mostrar["Intereses diciembre (€)"] = tabla_mostrar["Intereses diciembre (€)"].map("{:.2f}".format)
+    tabla_mostrar["Intereses enero (€)"] = tabla_mostrar["Intereses enero (€)"].map("{:.2f}".format)
+    tabla_mostrar["Intereses total (€)"] = tabla_mostrar["Intereses total (€)"].map("{:.2f}".format)
+    st.dataframe(tabla_mostrar, use_container_width=True)
 
     duracion_meses = len(tabla)
     total_intereses = round(tabla["Intereses total (€)"].sum(), 2)
