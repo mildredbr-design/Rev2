@@ -164,15 +164,14 @@ def calcular_tae(cuotas, fechas):
 # -------------------------------
 # INTERFAZ STREAMLIT
 # -------------------------------
-tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"])
-
 vitesse_valores = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
+
+tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"])
 
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 
-# Campo dinámico según tipo
 if tipo_calculo == "Vitesse":
     valor = st.selectbox("Porcentaje de reembolso mensual (%)", vitesse_valores)
 elif tipo_calculo == "Cuota":
@@ -227,13 +226,3 @@ if st.button("Calcular"):
     df_resumen = pd.DataFrame(resumen_dict)
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
-
-    # Tabla detalle TAE
-    tabla_tae = pd.DataFrame({
-        "Fecha": fechas_tae,
-        "Cuota (sin seguro) (€)": cuotas_tae,
-        "Tiempo (años)": [round(t,5) for t in range(len(cuotas_tae))],  # aproximado simplificado
-        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, range(len(cuotas_tae)))]
-    })
-    st.subheader("📈 Detalle cálculo TAE mes a mes")
-    st.dataframe(tabla_tae, use_container_width=True)
