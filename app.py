@@ -35,6 +35,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = 0.0
     interes_enero = 0.0
 
+    # Ajuste diciembre/enero con cambio bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -48,12 +49,12 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
             base_ene = 366 if bisiesto_curr else 365
             interes_enero = capital * (tin / 100) * dias_ene / base_ene
             interes_total = interes_diciembre + interes_enero
-            return round(interes_total,2), round(interes_diciembre,2), round(interes_enero,2)
+            return interes_total, interes_diciembre, interes_enero
 
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = capital * (tin / 100) * dias_tramo / base
-    return round(interes_total,2), 0.0, round(interes_total,2)
+    return interes_total, 0.0, interes_total
 
 # ---------------------------------------------------------
 # SIMULADOR PRECISO CON AMORTIZACION EXACTA
@@ -68,19 +69,19 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes_total, interes_diciembre, interes_enero = interes_preciso(
+        interes_total_preciso, interes_dic, interes_ene = interes_preciso(
             saldo, tin, fecha_anterior, fecha_pago
         )
-        seguro = (saldo + interes_total) * seguro_tasa
+        seguro = (saldo + interes_total_preciso) * seguro_tasa
         capital_pendiente = saldo
 
         # Amortización exacta
-        if saldo + interes_total <= cuota_precisa:
+        if saldo + interes_total_preciso <= cuota_precisa:
             amort = saldo
             saldo = 0
-            cuota_final = amort + interes_total
+            cuota_final = amort + interes_total_preciso
         else:
-            amort = cuota_precisa - interes_total
+            amort = cuota_precisa - interes_total_preciso
             saldo -= amort
             cuota_final = cuota_precisa
 
@@ -90,9 +91,9 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Fecha recibo": fecha_pago,
             "Capital pendiente (€)": round(capital_pendiente,2),
             "Cuota (€)": round(cuota_final,2),
-            "Intereses diciembre (€)": interes_diciembre,
-            "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes_total,2),
+            "Intereses diciembre (€)": round(interes_dic,2),
+            "Intereses enero (€)": round(interes_ene,2),
+            "Intereses total (€)": round(interes_total_preciso,2),
             "Amortización (€)": round(amort,2),
             "Saldo (€)": round(saldo,2),
             "Seguro (€)": round(seguro,2),
