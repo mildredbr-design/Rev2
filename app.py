@@ -66,35 +66,27 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 def fraccion_ano_desde_financiacion(fecha_inicio, fecha_pago):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_pago = pd.to_datetime(fecha_pago).date()
-    fraccion_total = 0.0
 
-    fecha_actual = fecha_inicio
-    while fecha_actual < fecha_pago:
-        # Manejo cambio bisiesto ↔ no bisiesto
-        if fecha_actual.month == 12 and fecha_actual.day == 2 and fecha_actual.year +1 == fecha_pago.year:
-            year_prev = fecha_actual.year
-            year_curr = fecha_pago.year
-            bisiesto_prev = calendar.isleap(year_prev)
-            bisiesto_curr = calendar.isleap(year_curr)
-            if bisiesto_prev != bisiesto_curr:
-                # Diciembre: 2-31
-                base_dic = 366 if bisiesto_prev else 365
-                dias_dic = 29
-                fraccion_total += dias_dic / base_dic
+    # Cambio bisiesto ↔ no bisiesto
+    if fecha_pago.month == 1 and fecha_inicio.year < fecha_pago.year:
+        year_prev = fecha_pago.year - 1
+        year_curr = fecha_pago.year
+        bisiesto_prev = calendar.isleap(year_prev)
+        bisiesto_curr = calendar.isleap(year_curr)
+        if bisiesto_prev != bisiesto_curr:
+            # Diciembre: 2-31
+            base_dic = 366 if bisiesto_prev else 365
+            fraccion_dic = 29 / base_dic
+            # Enero: 1 hasta fecha_pago
+            base_ene = 366 if bisiesto_curr else 365
+            dias_ene = (fecha_pago - date(year_curr, 1, 1)).days + 1
+            fraccion_ene = dias_ene / base_ene
+            return fraccion_dic + fraccion_ene
 
-                # Enero: 1 hasta fecha_pago
-                base_ene = 366 if bisiesto_curr else 365
-                dias_ene = (fecha_pago - date(year_curr, 1, 1)).days + 1
-                fraccion_total += dias_ene / base_ene
-                return fraccion_total
-
-        # Mes normal
-        base = dias_ano(fecha_actual)
-        dias_mes = (fecha_pago - fecha_actual).days
-        fraccion_total += dias_mes / base
-        break
-
-    return fraccion_total
+    # Mes normal
+    dias_tramo = (fecha_pago - fecha_inicio).days
+    base = dias_ano(fecha_inicio)
+    return dias_tramo / base
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -162,7 +154,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------- CALCULO TAE ----------
-def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
+def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=100000):
     tae = 0.2179
     for _ in range(max_iter):
         van = sum([c / ((1 + tae) ** t) for c, t in zip(cuotas, tiempos)])
@@ -208,7 +200,7 @@ if st.button("Calcular"):
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
-    tiempos = [0] + list(tabla["Fraccion año TAE"].cumsum())
+    tiempos = [0] + list(tabla["Fraccion año TAE"])  # ✅ usar directamente sin cumsum
     tae = calcular_tae(cuotas_exactas, tiempos)
 
     resumen_dict = {"Concepto":["Duración (meses)","Intereses totales (€)","Intereses diciembre (€)","Intereses enero (€)","TAE aproximada (%)"]}
