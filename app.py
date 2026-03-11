@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-from io import BytesIO
 from datetime import datetime, date
 import calendar
 
@@ -131,8 +130,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 "Amortización (€)": round(amort,2),
                 "Saldo (€)": saldo,
                 "Seguro (€)": round(seguro,2),
-                "Recibo total (€)": round(recibo_total,2),
-                "Recibo total exacto": recibo_total
+                "Recibo total (€)": round(recibo_total,2)
             })
 
             break
@@ -153,8 +151,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Amortización (€)": round(amort,2),
             "Saldo (€)": round(saldo,2),
             "Seguro (€)": round(seguro,2),
-            "Recibo total (€)": round(recibo_total,2),
-            "Recibo total exacto": recibo_total
+            "Recibo total (€)": round(recibo_total,2)
         })
 
         fecha_anterior = fecha_pago
@@ -169,7 +166,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
 
 # ---------------------------------------------------------
-# CALCULO TAE ESTABLE
+# CALCULO TAE
 # ---------------------------------------------------------
 
 def calcular_tae(cuotas, tiempos):
@@ -261,7 +258,8 @@ if st.button("Calcular"):
         2
     )
 
-    cuotas_exactas=[-capital]+list(tabla["Recibo total exacto"])
+    # TAE SIN SEGURO
+    cuotas_tae=[-capital]+list(tabla["Cuota (€)"])
 
     tiempos=[0]
 
@@ -271,7 +269,7 @@ if st.button("Calcular"):
 
         tiempos.append(dias/365)
 
-    tae=calcular_tae(cuotas_exactas,tiempos)
+    tae=calcular_tae(cuotas_tae,tiempos)
 
     resumen_dict={
         "Concepto":[
