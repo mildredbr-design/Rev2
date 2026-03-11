@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from io import BytesIO
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
@@ -12,6 +12,7 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def primer_recibo(fecha_inicio):
+    # Primer recibo: día 2 siguiente
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
     if fecha_inicio.month == 12:
@@ -20,26 +21,34 @@ def primer_recibo(fecha_inicio):
         return date(fecha_inicio.year, fecha_inicio.month + 1, 2)
 
 def siguiente_recibo(fecha):
+    # Recibo siguiente: día 2 del mes siguiente
     if fecha.month == 12:
         return date(fecha.year + 1, 1, 2)
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
+def calcular_interes_exacto(capital, tin, fecha_inicio, fecha_fin):
+    """
+    Calcula interés exacto entre dos fechas usando la fórmula:
+    Interés = capital * TIN * (días / días naturales del año)
+    Ajusta correctamente cambios de año bisiesto/no bisiesto
+    """
     interes_total = 0
     fecha_actual = fecha_inicio
+
     while fecha_actual < fecha_fin:
         fin_ano = date(fecha_actual.year, 12, 31)
+        base = dias_ano(fecha_actual)
+
         if fecha_fin <= fin_ano:
             dias = (fecha_fin - fecha_actual).days
-            base = dias_ano(fecha_actual)
-            interes_total += capital * (tin/100) * dias / base
+            interes_total += capital * (tin / 100) * dias / base
             break
         else:
             dias = (fin_ano - fecha_actual).days + 1
-            base = dias_ano(fecha_actual)
-            interes_total += capital * (tin/100) * dias / base
-            fecha_actual = date(fecha_actual.year + 1, 1, 1)
+            interes_total += capital * (tin / 100) * dias / base
+            fecha_actual = fin_ano + timedelta(days=1)
+
     return interes_total
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -51,10 +60,11 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = calcular_interes(saldo, tin, fecha_anterior, fecha_pago)
+        interes = calcular_interes_exacto(saldo, tin, fecha_anterior, fecha_pago)
         dias = (fecha_pago - fecha_anterior).days
         seguro = (saldo + interes) * seguro_tasa if seguro_tasa > 0 else 0.0
 
+        # Ajustar último recibo
         if saldo + interes <= cuota:
             cuota_final = saldo + interes
             amort = saldo
@@ -79,6 +89,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         amort = cuota - interes
         saldo -= amort
         recibo_total = cuota + seguro
+
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
@@ -112,15 +123,15 @@ def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha
 
     while fecha_actual < fecha_vencimiento:
         fin_ano = pd.Timestamp(year=fecha_actual.year, month=12, day=31)
-        dias_ano_actual = 366 if calendar.isleap(fecha_actual.year) else 365
+        base = 366 if calendar.isleap(fecha_actual.year) else 365
 
         if fecha_vencimiento <= fin_ano:
             dias = (fecha_vencimiento - fecha_actual).days
-            fraccion_total += dias / dias_ano_actual
+            fraccion_total += dias / base
             break
         else:
             dias = (fin_ano - fecha_actual).days + 1
-            fraccion_total += dias / dias_ano_actual
+            fraccion_total += dias / base
             fecha_actual = fin_ano + pd.Timedelta(days=1)
 
     return fraccion_total
@@ -181,7 +192,7 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    # Tabla resumen con duración como entero
+    # Tabla resumen
     resumen_dict = {
         "Concepto": ["Duración (meses)", "Intereses (€)"]
     }
