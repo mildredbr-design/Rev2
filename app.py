@@ -25,38 +25,36 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# ---------- FUNCION EXACTA DE INTERESES SOLO EN ENERO DESPUES DE CAMBIO BISIETO ----------
-def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_mes_anterior=None):
+# ---------- FUNCION EXACTA DE INTERESES ----------
+def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses exactos de un recibo:
-    - normalmente usa base 365/366
-    - solo ajusta fracción exacta si es enero y el mes anterior fue diciembre con cambio bisiesto/no bisiesto
+    Calcula intereses exactos de un recibo mensual.
+    - Normalmente usa base 365/366 según el año del tramo.
+    - Si cruza diciembre → enero con cambio bisiesto/no bisiesto, divide el tramo y aplica fracción exacta a enero.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio)
     fecha_fin = pd.to_datetime(fecha_fin)
+    interes_total = 0.0
 
-    # Base normal
-    base = 366 if calendar.isleap(fecha_inicio.year) else 365
-    dias = (fecha_fin - fecha_inicio).days
+    # Caso especial: cruce de diciembre a enero
+    if fecha_inicio.month == 12 and fecha_fin.month == 1 and fecha_inicio.year != fecha_fin.year:
+        # Base diciembre
+        base_dic = 366 if calendar.isleap(fecha_inicio.year) else 365
+        fin_diciembre = date(fecha_inicio.year, 12, 31)
+        dias_dic = (fin_diciembre - fecha_inicio).days + 1
+        interes_total += round(capital * (tin / 100) * dias_dic / base_dic, 5)
 
-    # Interés normal
-    interes = capital * (tin / 100) * dias / base
+        # Base enero con fracción exacta
+        fecha_ini_enero = fin_diciembre
+        fraccion_enero = calcular_fraccion_entre_financiacion_y_vencimiento(fecha_ini_enero, fecha_fin)
+        interes_total += round(capital * (tin / 100) * fraccion_enero, 5)
 
-    # Ajuste especial: solo enero y hay mes anterior
-    if fecha_mes_anterior:
-        mes_ant = pd.to_datetime(fecha_mes_anterior)
-        # Solo si mes anterior diciembre y mes actual enero
-        if mes_ant.month == 12 and fecha_fin.month == 1:
-            # Detecta cambio de año bisiesto ↔ no bisiesto
-            año_bisiesto_ant = calendar.isleap(mes_ant.year)
-            año_bisiesto_act = calendar.isleap(fecha_fin.year)
-            if año_bisiesto_ant != año_bisiesto_act:
-                # Recalcula interés usando fracción exacta
-                interes = capital * (tin / 100) * calcular_fraccion_entre_financiacion_y_vencimiento(
-                    date(fecha_fin.year-1,12,31), fecha_fin
-                )
+    else:
+        base = 366 if calendar.isleap(fecha_inicio.year) else 365
+        dias = (fecha_fin - fecha_inicio).days
+        interes_total += round(capital * (tin / 100) * dias / base, 5)
 
-    return round(interes, 2)
+    return round(interes_total, 2)
 
 # ---------- SIMULADOR ----------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -68,8 +66,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     mes = 1
 
     while saldo > 0:
-        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago,
-                                  fecha_mes_anterior=fecha_anterior)
+        interes = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
         seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
         capital_pendiente = saldo
 
@@ -82,11 +79,10 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
                 seguro = round((amort + interes) * seguro_tasa, 2)
 
             recibo_total = round(cuota_final + seguro, 2)
-
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
-                "Capital pendiente (€)": round(capital_pendiente,2),
+                "Capital pendiente (€)": round(capital_pendiente, 2),
                 "Cuota (€)": cuota_final,
                 "Intereses (€)": interes,
                 "Amortización (€)": amort,
@@ -117,48 +113,21 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
         mes += 1
-
         if mes > 600:
             break
 
     return pd.DataFrame(datos)
 
 # ---------- FUNCIONES TAE ----------
-def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, w_fecha_ultimo_vencimiento_tratado):
-    fecha_financiacion = pd.to_datetime(fecha_financiacion)
-    w_fecha_ultimo_vencimiento_tratado = pd.to_datetime(w_fecha_ultimo_vencimiento_tratado)
-
-    w_dia_año = 366 if calendar.isleap(w_fecha_ultimo_vencimiento_tratado.year) else 365
-    w_dia_año_anterior = 366 if calendar.isleap(w_fecha_ultimo_vencimiento_tratado.year - 1) else 365
-
-    if w_fecha_ultimo_vencimiento_tratado.year == fecha_financiacion.year:
-        w_dia_año_anterior = w_dia_año
-
-    delta_años = max(w_fecha_ultimo_vencimiento_tratado.year - fecha_financiacion.year + 1, 0)
-    w_aniversario_fecha_financiacion = fecha_financiacion + pd.DateOffset(years=delta_años)
-
-    if w_dia_año != w_dia_año_anterior and w_fecha_ultimo_vencimiento_tratado < w_aniversario_fecha_financiacion:
-        delta_años = delta_años - 2 if delta_años > 1 else 0
-        w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
-        fraccion_año = (
-            delta_años +
-            ((w_dia_año_anterior - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año_anterior) +
-            (w_fecha_ultimo_vencimiento_tratado.dayofyear / w_dia_año)
-        )
-    elif w_fecha_ultimo_vencimiento_tratado > w_aniversario_fecha_financiacion:
-        fraccion_año = (
-            (0 if delta_años < 1 else delta_años) +
-            ((w_fecha_ultimo_vencimiento_tratado.dayofyear - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
-        )
-    else:
-        delta_años = delta_años - 1 if delta_años > 1 else 0
-        w_aniversario_fecha_financiacion += pd.DateOffset(years=-1)
-        fraccion_año = (
-            delta_años +
-            ((w_fecha_ultimo_vencimiento_tratado.dayofyear - w_aniversario_fecha_financiacion.dayofyear) / w_dia_año)
-        )
-
-    return round(fraccion_año, 7)
+def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, fecha_fin):
+    fecha_inicio = pd.to_datetime(fecha_inicio)
+    fecha_fin = pd.to_datetime(fecha_fin)
+    dias_totales = (fecha_fin - fecha_inicio).days
+    fraccion_total = 0.0
+    for i in range(dias_totales):
+        dia = fecha_inicio + timedelta(days=i)
+        fraccion_total += 1 / (366 if calendar.isleap(dia.year) else 365)
+    return fraccion_total
 
 def redondear_decimal(valor, decimales=6):
     return round(valor, decimales)
@@ -196,7 +165,6 @@ opciones_seguro = {
     "Dos titulares Light/Light": 0.0059,
     "Dos titulares Full/Light": 0.0082
 }
-
 seguro_str = st.selectbox("Seguro mensual sobre saldo pendiente + interés", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
 
