@@ -43,17 +43,17 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 5)
+            interes_diciembre = capital * (tin / 100) * dias_dic / base_dic
             dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
-            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 5)
-            interes_total = round(interes_diciembre + interes_enero, 5)
-            return round(interes_total, 2), interes_diciembre, interes_enero
+            interes_enero = capital * (tin / 100) * dias_ene / base_ene
+            interes_total = interes_diciembre + interes_enero
+            return round(interes_total,2), round(interes_diciembre,2), round(interes_enero,2)
 
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
-    interes_total = round(capital * (tin / 100) * dias_tramo / base, 5)
-    return round(interes_total, 2), 0.0, interes_total
+    interes_total = capital * (tin / 100) * dias_tramo / base
+    return round(interes_total,2), 0.0, round(interes_total,2)
 
 # ---------------------------------------------------------
 # SIMULADOR PRECISO CON AMORTIZACION EXACTA
@@ -61,7 +61,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
-    cuota = capital * (cuota_porcentaje / 100)  # sin redondear
+    cuota_precisa = capital * (cuota_porcentaje / 100)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
@@ -74,29 +74,29 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         seguro = (saldo + interes_total) * seguro_tasa
         capital_pendiente = saldo
 
-        # Calculo exacto de amortización
-        if saldo + interes_total <= cuota:
+        # Amortización exacta
+        if saldo + interes_total <= cuota_precisa:
             amort = saldo
             saldo = 0
             cuota_final = amort + interes_total
         else:
-            amort = cuota - interes_total
-            saldo = saldo - amort
-            cuota_final = cuota
+            amort = cuota_precisa - interes_total
+            saldo -= amort
+            cuota_final = cuota_precisa
 
-        # Guardamos redondeado solo para mostrar
+        # Guardamos solo valores redondeados a mostrar
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente, 2),
-            "Cuota (€)": round(cuota_final, 2),
+            "Capital pendiente (€)": round(capital_pendiente,2),
+            "Cuota (€)": round(cuota_final,2),
             "Intereses diciembre (€)": interes_diciembre,
             "Intereses enero (€)": interes_enero,
-            "Intereses total (€)": round(interes_total, 2),
-            "Amortización (€)": round(amort, 2),
-            "Saldo (€)": round(saldo, 2),
-            "Seguro (€)": round(seguro, 2),
-            "Recibo total (€)": round(cuota_final + seguro, 2)
+            "Intereses total (€)": round(interes_total,2),
+            "Amortización (€)": round(amort,2),
+            "Saldo (€)": round(saldo,2),
+            "Seguro (€)": round(seguro,2),
+            "Recibo total (€)": round(cuota_final + seguro,2)
         })
 
         fecha_anterior = fecha_pago
@@ -133,23 +133,23 @@ def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
                 fraccion += dias_tramo / dias_en_ano
                 actual = fin_ano + timedelta(days=1)
 
-        tiempos.append(round(tiempos[-1] + fraccion, 12))
+        tiempos.append(round(tiempos[-1] + fraccion,12))
 
     def van(tasa):
-        return sum(c / ((1 + tasa) ** t) for c, t in zip(cuotas, tiempos))
+        return sum(c / ((1 + tasa) ** t) for c,t in zip(cuotas, tiempos))
 
     minimo = -0.999999
     maximo = 10.0
     for _ in range(1000):
-        medio = (minimo + maximo) / 2
+        medio = (minimo + maximo)/2
         valor = van(medio)
         if abs(valor) < 1e-12:
-            return round(medio * 100, 2), tiempos
+            return round(medio*100,2), tiempos
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-    return round(medio * 100, 2), tiempos
+    return round(medio*100,2), tiempos
 
 # ---------------------------------------------------------
 # INPUTS
