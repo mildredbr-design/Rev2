@@ -25,35 +25,36 @@ def siguiente_recibo(fecha):
     else:
         return date(fecha.year, fecha.month + 1, 2)
 
-# ---------- INTERESES EXACTOS ----------
+# ---------- INTERESES EXACTOS CON INTERÉS COMPUESTO DIARIO ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin, fecha_anterior=None):
     """
     Calcula intereses exactos de un recibo.
-    Ajuste especial si diciembre cambia bisiesto/no bisiesto y el recibo cae en enero.
-    Redondeo solo al final.
+    Ajuste especial si diciembre cambia bisiesto/no bisiesto y recibo cae en enero.
+    Interés compuesto diario para precisión máxima.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
-    # Caso especial: enero tras diciembre con posible cambio de bisiesto
+    # Caso especial: enero tras diciembre con cambio de año
     if fecha_inicio.month == 1 and fecha_anterior is not None and fecha_anterior.month == 12:
         # Tramo diciembre
         fin_diciembre = date(fecha_anterior.year, 12, 31)
         dias_dic = (fin_diciembre - fecha_anterior).days + 1
         base_dic = 366 if calendar.isleap(fecha_anterior.year) else 365
-        interes_dic = capital * (tin / 100) * dias_dic / base_dic
+        interes_dic = capital * ((1 + tin/100/base_dic)**dias_dic - 1)
 
         # Tramo enero
         inicio_enero = date(fecha_fin.year, 1, 1)
         dias_ene = (fecha_fin - inicio_enero).days + 1
         base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
-        interes_ene = capital * (tin / 100) * dias_ene / base_ene
+        interes_ene = capital * ((1 + tin/100/base_ene)**dias_ene - 1)
 
         interes_total = interes_dic + interes_ene
     else:
+        # Cálculo normal para otros meses
         dias_tramo = (fecha_fin - fecha_inicio).days
         base = dias_ano(fecha_inicio)
-        interes_total = capital * (tin / 100) * dias_tramo / base
+        interes_total = capital * ((1 + tin/100/base)**dias_tramo - 1)
 
     return round(interes_total, 2)
 
