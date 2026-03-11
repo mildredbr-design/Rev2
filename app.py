@@ -121,54 +121,48 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE EXACTA CON AJUSTE DEL PRIMER TRAMO
+# CALCULO TAE EXACTA CORREGIDA
 # ---------------------------------------------------------
 
 def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
-    tiempos = [0.0]
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
+    tiempos = [0.0]  # tiempo acumulado en años
 
-    for i in range(1,len(fechas)):
+    for i in range(1, len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
-        fraccion = 0
+        fraccion = 0.0
         actual = f0
 
-        # Si es el primer tramo, incluimos el día de financiación hasta el día 2 del primer mes
-        if i==1:
-            fraccion = 0
-            delta = (f1 - f0).days + 1  # incluimos el primer día
-            fraccion = delta / dias_ano(f0)
-        else:
-            while actual < f1:
-                dias_en_ano = 366 if calendar.isleap(actual.year) else 365
-                fin_ano = date(actual.year,12,31)
-                if f1 <= fin_ano:
-                    dias_tramo = (f1 - actual).days
-                    fraccion += dias_tramo / dias_en_ano
-                    actual = f1
-                else:
-                    dias_tramo = (fin_ano - actual).days + 1
-                    fraccion += dias_tramo / dias_en_ano
-                    actual = fin_ano + timedelta(days=1)
+        while actual < f1:
+            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
+            fin_ano = date(actual.year, 12, 31)
+            if f1 <= fin_ano:
+                dias_tramo = (f1 - actual).days
+                fraccion += dias_tramo / dias_en_ano
+                actual = f1
+            else:
+                dias_tramo = (fin_ano - actual).days + 1
+                fraccion += dias_tramo / dias_en_ano
+                actual = fin_ano + timedelta(days=1)
 
-        tiempos.append(fraccion)
+        tiempos.append(round(tiempos[-1] + fraccion, 12))
 
     def van(tasa):
-        return sum(c / ((1 + tasa) ** t) for c,t in zip(cuotas, tiempos))
+        return sum(c / ((1 + tasa) ** t) for c, t in zip(cuotas, tiempos))
 
     minimo = -0.999999
     maximo = 10.0
     for _ in range(1000):
-        medio = (minimo + maximo)/2
+        medio = (minimo + maximo) / 2
         valor = van(medio)
         if abs(valor) < 1e-12:
-            return round(medio*100,2), tiempos
+            return round(medio * 100, 2), tiempos
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-    return round(medio*100,2), tiempos
+    return round(medio * 100, 2), tiempos
 
 # ---------------------------------------------------------
 # INPUTS
@@ -207,10 +201,8 @@ if st.button("Calcular"):
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
     # --------------------------
-    # CORRECCION TAE
+    # CÁLCULO TAE CORREGIDO
     # --------------------------
-    # Antes: cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
-    # Ahora usamos capital amortizado + intereses exactos (sin seguro)
     cuotas_tae = [-capital] + list(tabla["Amortización (€)"] + tabla["Intereses total (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
