@@ -71,6 +71,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional=Fals
             saldo = 0
             if seguro_opcional:
                 seguro = round((amort + interes) * 0.0061, 2)
+            recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
@@ -79,13 +80,15 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional=Fals
                 "Intereses (€)": interes,
                 "Amortización (€)": round(amort,2),
                 "Saldo (€)": round(saldo,2),
-                "Seguro (€)": seguro
+                "Seguro (€)": seguro,
+                "Recibo total (€)": recibo_total
             })
             break
 
-        # Cuota fija mensual
+        # cuota fija mensual
         amort = round(cuota - interes, 2)
         saldo = round(saldo - amort, 2)
+        recibo_total = round(cuota + seguro, 2)
 
         datos.append({
             "Mes": mes,
@@ -95,7 +98,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional=Fals
             "Intereses (€)": interes,
             "Amortización (€)": amort,
             "Saldo (€)": saldo,
-            "Seguro (€)": seguro
+            "Seguro (€)": seguro,
+            "Recibo total (€)": recibo_total
         })
 
         fecha_anterior = fecha_pago
@@ -113,8 +117,9 @@ fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
 cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
-# Checkbox para activar/desactivar seguro
-seguro_opcional = st.checkbox("Activar seguro (0,61% sobre saldo pendiente + interés)")
+# Selectbox para activar/desactivar seguro
+seguro_str = st.selectbox("Seguro mensual 0,61% sobre saldo pendiente + interés", ["No", "Sí"])
+seguro_opcional = True if seguro_str == "Sí" else False
 
 # -------- CALCULO --------
 if st.button("Calcular"):
@@ -126,17 +131,18 @@ if st.button("Calcular"):
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
     total_seguro = tabla["Seguro (€)"].sum()
-    total_con_seguro = total_cuota + total_seguro
+    total_recibo = tabla["Recibo total (€)"].sum()
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
     col4.metric("Total seguro (€)", round(total_seguro,2) if seguro_opcional else "0,00")
+    col5.metric("Total con seguro (€)", round(total_recibo,2) if seguro_opcional else round(total_cuota,2))
 
     st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
     if seguro_opcional:
-        st.write(f"**Coste total a pagar con seguro:** {round(total_con_seguro,2)} €")
+        st.write(f"**Coste total a pagar con seguro:** {round(total_recibo,2)} €")
     else:
         st.write("**Seguro no activado**")
 
