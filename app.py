@@ -28,28 +28,32 @@ def siguiente_recibo(fecha):
 # ---------- INTERESES PRECISOS ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses exactos para un recibo.
-    - Ajusta solo si se cruza diciembre → enero y hay cambio de bisiesto.
+    Calcula intereses exactos de un recibo.
+    Ajuste especial para cruce diciembre -> enero cuando hay cambio de bisiesto/no bisiesto.
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-    base = dias_ano(fecha_inicio)
-    dias_tramo = (fecha_fin - fecha_inicio).days
-    interes_total = capital * (tin / 100) * dias_tramo / base
-
-    # Caso especial: cambio de bisiesto
+    
+    # Caso especial: diciembre → enero
     if fecha_inicio.month == 12 and fecha_fin.month == 1 and fecha_inicio.year != fecha_fin.year:
-        # Diciembre
+        # Tramo diciembre
+        fin_diciembre = date(fecha_inicio.year, 12, 31)
+        dias_dic = (fin_diciembre - fecha_inicio).days + 1
         base_dic = 366 if calendar.isleap(fecha_inicio.year) else 365
-        dias_dic = (date(fecha_inicio.year, 12, 31) - fecha_inicio).days + 1
         interes_dic = capital * (tin / 100) * dias_dic / base_dic
 
-        # Enero
+        # Tramo enero
+        inicio_enero = date(fecha_fin.year, 1, 1)
+        dias_ene = (fecha_fin - inicio_enero).days + 1  # incluir día de pago
         base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
-        dias_ene = (fecha_fin - date(fecha_fin.year, 1, 1)).days
         interes_ene = capital * (tin / 100) * dias_ene / base_ene
 
         interes_total = interes_dic + interes_ene
+    else:
+        # Mes normal
+        dias_tramo = (fecha_fin - fecha_inicio).days
+        base = dias_ano(fecha_inicio)
+        interes_total = capital * (tin / 100) * dias_tramo / base
 
     return round(interes_total, 2)
 
