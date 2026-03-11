@@ -35,7 +35,6 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = 0.0
     interes_enero = 0.0
 
-    # Ajuste diciembre/enero con cambio bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -57,12 +56,12 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     return round(interes_total, 2), 0.0, interes_total
 
 # ---------------------------------------------------------
-# SIMULADOR
+# SIMULADOR PRECISO CON AMORTIZACION EXACTA
 # ---------------------------------------------------------
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
-    cuota = round(capital * (cuota_porcentaje / 100), 2)
+    cuota = capital * (cuota_porcentaje / 100)  # sin redondear
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
@@ -72,23 +71,20 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         interes_total, interes_diciembre, interes_enero = interes_preciso(
             saldo, tin, fecha_anterior, fecha_pago
         )
-        seguro = round((saldo + interes_total) * seguro_tasa, 5)
+        seguro = (saldo + interes_total) * seguro_tasa
         capital_pendiente = saldo
 
-        # -----------------------------
-        # Calculo de amortización exacta
-        # -----------------------------
+        # Calculo exacto de amortización
         if saldo + interes_total <= cuota:
-            amort = saldo  # último pago
+            amort = saldo
             saldo = 0
-            cuota_final = round(amort + interes_total, 2)
-            recibo_total = round(cuota_final + seguro, 2)
+            cuota_final = amort + interes_total
         else:
-            amort = cuota - interes_total  # sin redondear todavía
-            saldo = saldo - amort  # sin redondear todavía
+            amort = cuota - interes_total
+            saldo = saldo - amort
             cuota_final = cuota
-            recibo_total = round(cuota + seguro, 2)
 
+        # Guardamos redondeado solo para mostrar
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
@@ -99,8 +95,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             "Intereses total (€)": round(interes_total, 2),
             "Amortización (€)": round(amort, 2),
             "Saldo (€)": round(saldo, 2),
-            "Seguro (€)": seguro,
-            "Recibo total (€)": recibo_total
+            "Seguro (€)": round(seguro, 2),
+            "Recibo total (€)": round(cuota_final + seguro, 2)
         })
 
         fecha_anterior = fecha_pago
@@ -112,12 +108,12 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE EXACTA CORREGIDA
+# CALCULO TAE EXACTA
 # ---------------------------------------------------------
 
 def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
-    tiempos = [0.0]  # tiempo acumulado en años
+    tiempos = [0.0]
 
     for i in range(1, len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
@@ -191,9 +187,6 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
-    # --------------------------
-    # CÁLCULO TAE CORREGIDO
-    # --------------------------
     cuotas_tae = [-capital] + list(tabla["Amortización (€)"] + tabla["Intereses total (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
