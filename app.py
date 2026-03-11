@@ -26,7 +26,7 @@ def siguiente_recibo(fecha):
     return date(fecha.year, fecha.month + 1, 2)
 
 # ---------------------------------------------------------
-# CALCULO INTERESES
+# CALCULO INTERESES (sin redondeo interno)
 # ---------------------------------------------------------
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
@@ -35,7 +35,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = 0.0
     interes_enero = 0.0
 
-    # Ajuste diciembre/enero con cambio bisiesto
+    # Ajuste diciembre/enero con cambio de bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -57,7 +57,7 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     return interes_total, 0.0, interes_total
 
 # ---------------------------------------------------------
-# SIMULADOR PRECISO CON AMORTIZACION EXACTA
+# SIMULADOR
 # ---------------------------------------------------------
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
@@ -188,6 +188,7 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
+    # Para la TAE usamos Cuota (€) sin seguro
     cuotas_tae = [-capital] + list(tabla["Amortización (€)"] + tabla["Intereses total (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
