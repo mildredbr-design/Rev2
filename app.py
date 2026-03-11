@@ -46,6 +46,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     while saldo > 0:
         interes = round(interes_diario_exacto(saldo, tin, fecha_anterior, fecha_pago),5)
         seguro = round((saldo + interes) * seguro_tasa,2) if seguro_tasa>0 else 0.0
+        capital_pendiente = saldo  # Guardamos capital pendiente al inicio del mes
 
         # Ajustar último recibo
         if saldo + interes <= cuota:
@@ -58,6 +59,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
+                "Capital pendiente (€)": round(capital_pendiente,2),
                 "Cuota (€)": cuota_final,
                 "Intereses (€)": round(interes,2),
                 "Amortización (€)": amort,
@@ -75,6 +77,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
+            "Capital pendiente (€)": round(capital_pendiente,2),
             "Cuota (€)": round(cuota,2),
             "Intereses (€)": round(interes,2),
             "Amortización (€)": amort,
@@ -99,14 +102,13 @@ def redondear_decimal(valor, decimales=6):
 def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, fecha_fin):
     fecha_inicio = pd.to_datetime(fecha_inicio)
     fecha_fin = pd.to_datetime(fecha_fin)
-    dias_totales = (fecha_fin - fecha_inicio).days
-    fraccion = 0.0
+    fraccion_total = 0.0
     fecha_actual = fecha_inicio
     while fecha_actual < fecha_fin:
         base = dias_ano(fecha_actual)
-        fraccion += 1/base
+        fraccion_total += 1/base
         fecha_actual += timedelta(days=1)
-    return fraccion
+    return fraccion_total
 
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
     tae = 0.2179
