@@ -7,7 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP, getcontext
 getcontext().prec = 10
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving desde cero con TAE exacta y tipos de cálculo")
+st.title("💳 Simulador Revolving con Tipo de Cálculo Avanzado")
 
 # -------------------------------
 # FUNCIONES AUXILIARES
@@ -170,7 +170,8 @@ tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"
 
 # Campo dinámico según tipo
 if tipo_calculo == "Vitesse":
-    valor = st.number_input("Porcentaje de reembolso mensual (%)", 0.1, 100.0, 5.0)
+    opciones_vitesse = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
+    valor = st.selectbox("Porcentaje de reembolso mensual (%)", opciones_vitesse)
 elif tipo_calculo == "Cuota":
     valor = st.number_input("Cuota mensual (€)", 1.0, 1000000.0, 300.0)
 else:
