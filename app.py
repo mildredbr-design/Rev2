@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date, timedelta
 import calendar
+from decimal import Decimal, getcontext, ROUND_HALF_UP
+
+# Ajustamos precisión suficiente para cálculos intermedios
+getcontext().prec = 10
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
@@ -30,10 +34,11 @@ def siguiente_recibo(fecha):
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-    interes_diciembre = 0.0
-    interes_enero = 0.0
+    interes_diciembre = Decimal("0.0")
+    interes_enero = Decimal("0.0")
+    tin_decimal = Decimal(tin) / Decimal("100")
 
-    # Ajuste diciembre/enero con cambio bisiesto
+    # Cambio bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -42,64 +47,63 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 5)
-            dias_ene = (fecha_fin - date(year_curr, 1, 1)).days + 1
+            interes_diciembre = (Decimal(capital) * tin_decimal * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
+            dias_ene = (fecha_fin - date(year_curr,1,1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
-            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 5)
-            interes_total = round(interes_diciembre + interes_enero, 5)
+            interes_enero = (Decimal(capital) * tin_decimal * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
+            interes_total = (interes_diciembre + interes_enero).quantize(Decimal("0.00001"))
             return interes_total, interes_diciembre, interes_enero
 
     # Mes normal
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
-    interes_total = round(capital * (tin / 100) * dias_tramo / base, 5)
-    return interes_total, 0.0, interes_total
+    interes_total = (Decimal(capital) * tin_decimal * Decimal(dias_tramo) / Decimal(base)).quantize(Decimal("0.00001"))
+    return interes_total, Decimal("0.0"), interes_total
 
 # ---------------------------------------------------------
 # SIMULADOR
 # ---------------------------------------------------------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
-    saldo = capital
-    cuota = capital * (cuota_porcentaje / 100)
+    saldo = Decimal(str(capital))
+    cuota = (Decimal(str(capital)) * Decimal(str(cuota_porcentaje)) / Decimal("100")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     fecha_pago = primer_recibo(fecha_inicio)
     fecha_anterior = fecha_inicio
     datos = []
     mes = 1
+    seguro_tasa = Decimal(str(seguro_tasa))
 
     while saldo > 0:
-        interes_total, interes_diciembre, interes_enero = interes_preciso(
-            saldo, tin, fecha_anterior, fecha_pago
-        )
+        interes_total, interes_dic, interes_ene = interes_preciso(saldo, tin, fecha_anterior, fecha_pago)
 
-        # Redondeo final para mostrar
-        interes_total_mostrar = round(interes_total, 2)
-        interes_diciembre_mostrar = round(interes_diciembre, 2)
-        interes_enero_mostrar = round(interes_enero, 2)
+        # Redondeo a 2 decimales para mostrar
+        interes_total_mostrar = interes_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        interes_dic_mostrar = interes_dic.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        interes_ene_mostrar = interes_ene.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        seguro = round((saldo + interes_total_mostrar) * seguro_tasa, 2)
+        seguro = ((saldo + interes_total_mostrar) * seguro_tasa).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         capital_pendiente = saldo
 
         if saldo + interes_total_mostrar <= cuota:
-            amort = round(saldo, 2)
-            saldo = 0
-            cuota_final = round(amort + interes_total_mostrar, 2)
+            amort = saldo.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            saldo = Decimal("0.00")
+            cuota_final = (amort + interes_total_mostrar).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         else:
-            amort = round(cuota - interes_total_mostrar, 2)
-            saldo = round(saldo - amort, 2)
+            amort = (cuota - interes_total_mostrar).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            saldo = (saldo - amort).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             cuota_final = cuota
 
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": round(capital_pendiente,2),
-            "Cuota (€)": round(cuota_final,2),
-            "Intereses diciembre (€)": interes_diciembre_mostrar,
-            "Intereses enero (€)": interes_enero_mostrar,
-            "Intereses total (€)": interes_total_mostrar,
-            "Amortización (€)": amort,
-            "Saldo (€)": round(saldo,2),
-            "Seguro (€)": seguro,
-            "Recibo total (€)": round(cuota_final + seguro,2)
+            "Capital pendiente (€)": float(capital_pendiente),
+            "Cuota (€)": float(cuota_final),
+            "Intereses diciembre (€)": float(interes_dic_mostrar),
+            "Intereses enero (€)": float(interes_ene_mostrar),
+            "Intereses total (€)": float(interes_total_mostrar),
+            "Amortización (€)": float(amort),
+            "Saldo (€)": float(saldo),
+            "Seguro (€)": float(seguro),
+            "Recibo total (€)": float(cuota_final + seguro)
         })
 
         fecha_anterior = fecha_pago
