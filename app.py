@@ -28,33 +28,23 @@ def siguiente_recibo(fecha):
 # ---------- FUNCION EXACTA DE INTERESES ----------
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
-    Calcula intereses exactos de un recibo mensual.
-    - Mes normal: Capital * TIN * (dias_mes / base_año_mes)
-    - Cruce diciembre → enero con cambio bisiesto ↔ no bisiesto: se divide el tramo en dos.
+    Calcula intereses exactos de un recibo entre fecha_inicio y fecha_fin.
+    - Si el tramo cruza varios años (bisiesto y no bisiesto), divide por año.
+    - Capital * TIN * (días del tramo en el año / base del año)
     """
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     interes_total = 0.0
 
-    # Caso especial: cruce diciembre → enero con cambio de bisiesto
-    if fecha_inicio.month == 12 and fecha_fin.month == 1 and fecha_inicio.year != fecha_fin.year:
-        # Tramo diciembre
-        base_dic = 366 if calendar.isleap(fecha_inicio.year) else 365
-        fin_diciembre = date(fecha_inicio.year, 12, 31)
-        dias_dic = (fin_diciembre - fecha_inicio).days + 1
-        interes_total += round(capital * (tin / 100) * dias_dic / base_dic, 5)
-
-        # Tramo enero (solo los días desde 1/1 hasta fecha_fin)
-        base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
-        inicio_enero = fin_diciembre + timedelta(days=1)
-        dias_ene = (fecha_fin - inicio_enero).days + 1
-        interes_total += round(capital * (tin / 100) * dias_ene / base_ene, 5)
-
-    else:
-        # Mes normal
-        base = 366 if calendar.isleap(fecha_inicio.year) else 365
-        dias = (fecha_fin - fecha_inicio).days
-        interes_total += round(capital * (tin / 100) * dias / base, 5)
+    actual = fecha_inicio
+    while actual < fecha_fin:
+        fin_año_actual = date(actual.year, 12, 31)
+        # El tramo termina a la fecha_fin si es antes de fin de año
+        tramo_fin = min(fin_año_actual, fecha_fin - timedelta(days=1))
+        dias_tramo = (tramo_fin - actual).days + 1
+        base = 366 if calendar.isleap(actual.year) else 365
+        interes_total += capital * (tin / 100) * dias_tramo / base
+        actual = tramo_fin + timedelta(days=1)
 
     return round(interes_total, 2)
 
