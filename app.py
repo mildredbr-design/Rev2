@@ -46,7 +46,7 @@ def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
     return round(interes_total, 2)
 
 # -------- SIMULADOR --------
-def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional=False):
+def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
     saldo = capital
     cuota = round(capital * (cuota_porcentaje / 100), 2)
@@ -61,16 +61,16 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional=Fals
         interes = calcular_interes(saldo, tin, fecha_anterior, fecha_pago)
         dias = (fecha_pago - fecha_anterior).days
 
-        # Seguro opcional 0,61%
-        seguro = round((saldo + interes) * 0.0061, 2) if seguro_opcional else 0.0
+        # Seguro mensual según tasa
+        seguro = round((saldo + interes) * seguro_tasa, 2) if seguro_tasa > 0 else 0.0
 
         # Último recibo
         if saldo + interes <= cuota:
             cuota_final = round(saldo + interes, 2)
             amort = saldo
             saldo = 0
-            if seguro_opcional:
-                seguro = round((amort + interes) * 0.0061, 2)
+            if seguro_tasa > 0:
+                seguro = round((amort + interes) * seguro_tasa, 2)
             recibo_total = round(cuota_final + seguro, 2)
             datos.append({
                 "Mes": mes,
@@ -117,33 +117,41 @@ fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 opciones = [2.7, 3, 3.5, 4, 5, 6, 7, 8, 9]
 cuota_porcentaje = st.selectbox("Velocidad de reembolso (% del capital inicial)", opciones)
 
-# Selectbox para activar/desactivar seguro
-seguro_str = st.selectbox("Seguro mensual 0,61% sobre saldo pendiente + interés", ["No", "Sí"])
-seguro_opcional = True if seguro_str == "Sí" else False
+# Selectbox de seguro con tasas por titular
+seguro_str = st.selectbox(
+    "Seguro mensual sobre saldo pendiente + interés",
+    ["No", "Un titular", "Dos titulares"]
+)
+
+# Mapear selección a tasa
+if seguro_str == "No":
+    seguro_tasa = 0
+elif seguro_str == "Un titular":
+    seguro_tasa = 0.0061
+else:  # Dos titulares
+    seguro_tasa = 0.0104
 
 # -------- CALCULO --------
 if st.button("Calcular"):
 
-    tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_opcional)
+    tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
     st.dataframe(tabla, use_container_width=True)
 
     st.subheader("📊 Resumen")
     total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
 
-    # Columnas fijas
     col1, col2, col3 = st.columns(3)
     col1.metric("Meses totales", len(tabla))
     col2.metric("Total pagado (€)", round(total_cuota,2))
     col3.metric("Intereses (€)", round(total_intereses,2))
 
-    # Línea de seguro solo si está activado
-    if seguro_opcional:
+    # Mostrar seguro solo si se ha seleccionado un titular o dos
+    if seguro_tasa > 0:
         total_seguro = tabla["Seguro (€)"].sum()
         st.metric("Total seguro (€)", round(total_seguro,2))
         st.write(f"**Coste total a pagar con seguro:** {round(total_cuota + total_seguro,2)} €")
 
-    # Coste total sin seguro siempre visible
     st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
 
     # -------- EXPORTAR EXCEL --------
