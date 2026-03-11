@@ -133,12 +133,12 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=1000):
         for i in range(len(cuotas)):
             van_lista.append(cuotas[i] / ((1 + tae) ** tiempos[i]))
         if abs(sum(van_lista)) < tolerancia:
-            return redondear_decimal(tae * 100)
+            return redondear_decimal(tae * 100,2)
         if sum(van_lista) < 0:
             tae -= 0.0001
         else:
             tae += 0.0001
-    return redondear_decimal(tae * 100)
+    return redondear_decimal(tae * 100,2)
 
 # ---------- INPUTS ----------
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 1000.0)
@@ -162,10 +162,10 @@ if st.button("Calcular"):
 
     # Valores resumen
     duracion_meses = len(tabla)
-    total_intereses = tabla["Intereses (€)"].sum()
-    total_seguro = tabla["Seguro (€)"].sum() if seguro_tasa > 0 else 0.0
-    total_capital_intereses = tabla["Cuota (€)"].sum()
-    total_con_seguro = total_capital_intereses + total_seguro
+    total_intereses = round(tabla["Intereses (€)"].sum(),2)
+    total_seguro = round(tabla["Seguro (€)"].sum(),2) if seguro_tasa > 0 else 0.0
+    total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
+    total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
     # Calculo TAE (sin seguro)
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
@@ -175,22 +175,22 @@ if st.button("Calcular"):
     except:
         tae = "Error"
 
-    # Tabla resumen
+    # Tabla resumen con formato de decimales
     resumen_dict = {
         "Concepto": ["Duración (meses)", "Intereses (€)"]
     }
-    resumen_dict["Valor"] = [duracion_meses, round(total_intereses,2)]
+    resumen_dict["Valor"] = [duracion_meses, total_intereses]
 
     if seguro_tasa > 0:
         resumen_dict["Concepto"].append("Seguro (€) total")
-        resumen_dict["Valor"].append(round(total_seguro,2))
+        resumen_dict["Valor"].append(total_seguro)
         resumen_dict["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
-        resumen_dict["Valor"].append(round(total_con_seguro,2))
+        resumen_dict["Valor"].append(total_con_seguro)
     
     resumen_dict["Concepto"].append("Coste total (capital + intereses)")
-    resumen_dict["Valor"].append(round(total_capital_intereses,2))
+    resumen_dict["Valor"].append(total_capital_intereses)
     resumen_dict["Concepto"].append("TAE aproximada (%)")
-    resumen_dict["Valor"].append(tae)
+    resumen_dict["Valor"].append(round(tae,2) if isinstance(tae,float) else tae)
 
     df_resumen = pd.DataFrame(resumen_dict)
     st.subheader("📊 Resumen en tabla")
