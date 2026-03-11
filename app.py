@@ -14,7 +14,6 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def primer_recibo(fecha_inicio):
-    # Siempre usamos el día 2 del mes siguiente (o mismo mes si antes del 2)
     if fecha_inicio.day < 2:
         return fecha_inicio.replace(day=2)
     if fecha_inicio.month == 12:
@@ -207,7 +206,12 @@ if st.button("Calcular"):
     total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
     total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
-    cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
+    # --------------------------
+    # CORRECCION TAE
+    # --------------------------
+    # Antes: cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
+    # Ahora usamos capital amortizado + intereses exactos (sin seguro)
+    cuotas_tae = [-capital] + list(tabla["Amortización (€)"] + tabla["Intereses total (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
 
