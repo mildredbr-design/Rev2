@@ -41,21 +41,24 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         bisiesto_prev = calendar.isleap(year_prev)
         bisiesto_curr = calendar.isleap(year_curr)
         if bisiesto_prev != bisiesto_curr:
-            # Dividir intereses en diciembre y enero
+            # Tramo diciembre: siempre del 2 de diciembre al 31 de diciembre
             inicio_dic = date(year_prev, 12, 2)
             fin_dic = date(year_prev, 12, 31)
-            if fecha_inicio <= fin_dic:
-                dias_dic = (fin_dic - max(fecha_inicio, inicio_dic)).days + 1
+            inicio_tramo_dic = max(fecha_inicio, inicio_dic)
+            if inicio_tramo_dic <= fin_dic:
+                dias_dic = (fin_dic - inicio_tramo_dic).days + 1
                 base_dic = 366 if bisiesto_prev else 365
                 interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
-                inicio_ene = date(year_curr, 1, 1)
-                dias_ene = (fecha_fin - max(fecha_inicio, inicio_ene)).days + 1
-                base_ene = 366 if bisiesto_curr else 365
-                interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
+            # Tramo enero: 1 enero al fecha_fin
+            inicio_ene = date(year_curr, 1, 1)
+            inicio_tramo_ene = max(fecha_inicio, inicio_ene)
+            dias_ene = (fecha_fin - inicio_tramo_ene).days + 1
+            base_ene = 366 if bisiesto_curr else 365
+            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
-                interes_total = round(interes_diciembre + interes_enero, 2)
-                return interes_total, interes_diciembre, interes_enero
+            interes_total = round(interes_diciembre + interes_enero, 2)
+            return interes_total, interes_diciembre, interes_enero
 
     # Mes normal
     dias_tramo = (fecha_fin - fecha_inicio).days
