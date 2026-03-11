@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 import calendar
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
@@ -124,9 +124,10 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 # ---------------------------------------------------------
 
 def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
+    # Calcular fracción exacta de año para cada cuota
     tiempos = [0.0]
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
-    for i in range(1, len(fechas)):
+    for i in range(1,len(fechas)):
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
         fraccion = 0
@@ -141,7 +142,7 @@ def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
             else:
                 dias_tramo = (fin_ano - actual).days + 1
                 fraccion += dias_tramo / dias_en_ano
-                actual = fin_ano + pd.Timedelta(days=1)
+                actual = fin_ano + timedelta(days=1)
         tiempos.append(fraccion)
 
     def van(tasa):
@@ -153,12 +154,12 @@ def calcular_tae_exacta(cuotas, fechas, fecha_inicio):
         medio = (minimo + maximo)/2
         valor = van(medio)
         if abs(valor) < 1e-12:
-            return round(medio*100,2)
+            return round(medio*100,2), tiempos  # devolvemos tiempos exactos también
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-    return round(medio*100,2)
+    return round(medio*100,2), tiempos
 
 # ---------------------------------------------------------
 # INPUTS
@@ -198,7 +199,7 @@ if st.button("Calcular"):
 
     cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
-    tae = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
+    tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
 
     resumen_dict = {
         "Concepto":[
@@ -227,30 +228,11 @@ if st.button("Calcular"):
     # TABLA DETALLE TAE
     # ---------------------------------------------------------
 
-    tiempos_tae = [0.0]
-    for i in range(1, len(fechas_tae)):
-        f0 = pd.to_datetime(fechas_tae[i-1]).date()
-        f1 = pd.to_datetime(fechas_tae[i]).date()
-        fraccion = 0
-        actual = f0
-        while actual < f1:
-            dias_en_ano = 366 if calendar.isleap(actual.year) else 365
-            fin_ano = date(actual.year,12,31)
-            if f1 <= fin_ano:
-                dias_tramo = (f1 - actual).days
-                fraccion += dias_tramo / dias_en_ano
-                actual = f1
-            else:
-                dias_tramo = (fin_ano - actual).days + 1
-                fraccion += dias_tramo / dias_en_ano
-                actual = fin_ano + pd.Timedelta(days=1)
-        tiempos_tae.append(round(fraccion,5))
-
     tabla_tae = pd.DataFrame({
         "Fecha": fechas_tae,
         "Cuota (sin seguro) (€)": cuotas_tae,
-        "Tiempo (años)": tiempos_tae,
-        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, tiempos_tae)]
+        "Tiempo (años)": [round(t,5) for t in tiempos_exactos],
+        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, tiempos_exactos)]
     })
 
     st.subheader("📈 Detalle cálculo TAE mes a mes")
