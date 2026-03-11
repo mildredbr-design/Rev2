@@ -36,7 +36,6 @@ def calcular_interes(capital, tin, inicio, fin):
     inicio = pd.to_datetime(inicio).date()
     fin = pd.to_datetime(fin).date()
 
-    # Cambio bisiesto
     if fin.month == 1 and inicio.year < fin.year:
         prev_year = inicio.year
         next_year = fin.year
@@ -69,7 +68,7 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
     datos = []
     mes = 1
 
-    # Según tipo de cálculo, definimos la cuota
+    # Según tipo de cálculo
     if tipo_calculo == "Vitesse":
         cuota = (capital * Decimal(str(valor)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
     elif tipo_calculo == "Cuota":
@@ -173,7 +172,9 @@ if tipo_calculo == "Vitesse":
     opciones_vitesse = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
     valor = st.selectbox("Porcentaje de reembolso mensual (%)", opciones_vitesse)
 elif tipo_calculo == "Cuota":
-    valor = st.number_input("Cuota mensual (€)", 1.0, 1000000.0, 300.0)
+    # Aquí usamos el mismo selectbox, pero con los importes a financiar
+    opciones_cuota = [600, 1200, 1800, 2400, 3000]  # <-- reemplaza con los importes reales que quieras
+    valor = st.selectbox("Importe de la cuota (€)", opciones_cuota)
 else:
     valor = st.number_input("Duración en meses", 1, 600, 36)
 
