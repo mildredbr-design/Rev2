@@ -5,9 +5,9 @@ import calendar
 from decimal import Decimal, getcontext, ROUND_HALF_UP
 
 # ---------------------------------------------------------
-# CONFIGURACIÓN PRECISIÓN DECIMAL
+# CONFIGURACIÓN DECIMAL
 # ---------------------------------------------------------
-getcontext().prec = 12  # suficiente para cálculos financieros exactos
+getcontext().prec = 12
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
 st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
@@ -41,7 +41,6 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = Decimal('0.0')
     interes_enero = Decimal('0.0')
 
-    # Ajuste diciembre/enero con cambio de bisiesto
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
         year_prev = fecha_fin.year - 1
         year_curr = fecha_fin.year
@@ -81,7 +80,6 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
         seguro = (saldo + interes_total_preciso) * Decimal(seguro_tasa)
         capital_pendiente = saldo
 
-        # Calcular amortización exacta
         if saldo + interes_total_preciso <= cuota_precisa:
             amort = saldo
             saldo = Decimal('0.0')
@@ -91,19 +89,19 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             saldo -= amort
             cuota_final = cuota_precisa
 
-        # Guardamos valores redondeados a 2 decimales para mostrar
+        # Convertimos a str con quantize para mostrar exactamente 2 decimales
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": float(capital_pendiente.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Cuota (€)": float(cuota_final.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Intereses diciembre (€)": float(interes_dic.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Intereses enero (€)": float(interes_ene.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Intereses total (€)": float(interes_total_preciso.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Amortización (€)": float(amort.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Saldo (€)": float(saldo.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Seguro (€)": float(seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            "Recibo total (€)": float((cuota_final + seguro).quantize(Decimal('0.01'), ROUND_HALF_UP))
+            "Capital pendiente (€)": str(capital_pendiente.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Cuota (€)": str(cuota_final.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses diciembre (€)": str(interes_dic.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses enero (€)": str(interes_ene.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Intereses total (€)": str(interes_total_preciso.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Amortización (€)": str(amort.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Saldo (€)": str(saldo.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Seguro (€)": str(seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            "Recibo total (€)": str((cuota_final + seguro).quantize(Decimal('0.01'), ROUND_HALF_UP))
         })
 
         fecha_anterior = fecha_pago
@@ -191,7 +189,6 @@ if st.button("Calcular"):
     total_capital_intereses = sum(Decimal(v) for v in tabla["Cuota (€)"])
     total_con_seguro = total_capital_intereses + total_seguro
 
-    # Para TAE usamos Cuota (€) sin seguro
     cuotas_tae = [-Decimal(capital)] + [Decimal(a)+Decimal(i) for a,i in zip(tabla["Amortización (€)"], tabla["Intereses total (€)"])]
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
     tae, tiempos_exactos = calcular_tae_exacta(cuotas_tae, fechas_tae, fecha_inicio)
@@ -207,10 +204,10 @@ if st.button("Calcular"):
         ],
         "Valor":[
             len(tabla),
-            float(total_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            float(total_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            float(total_con_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
-            float(total_capital_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            str(total_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            str(total_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            str(total_con_seguro.quantize(Decimal('0.01'), ROUND_HALF_UP)),
+            str(total_capital_intereses.quantize(Decimal('0.01'), ROUND_HALF_UP)),
             tae
         ]
     }
