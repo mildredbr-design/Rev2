@@ -120,26 +120,33 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# CALCULO TAE
+# CALCULO TAE ULTRA PRECISO
 # ---------------------------------------------------------
 
-def calcular_tae(cuotas, tiempos):
+def calcular_tae_preciso(cuotas, fechas, fecha_inicio):
+    # Se usan días reales exactos
+    tiempos = [0.0]
+    fecha_inicio = pd.to_datetime(fecha_inicio).date()
+    for f in fechas:
+        f = pd.to_datetime(f).date()
+        dias = (f - fecha_inicio).days
+        tiempos.append(dias / 365)  # fracción exacta del año
+
     def van(tasa):
         return sum(c / ((1 + tasa) ** t) for c, t in zip(cuotas, tiempos))
 
-    minimo = -0.9999
-    maximo = 1.0
-
-    for _ in range(200):
+    # Búsqueda binaria muy precisa
+    minimo = -0.999999
+    maximo = 10.0
+    for _ in range(1000):
         medio = (minimo + maximo) / 2
         valor = van(medio)
-        if abs(valor) < 1e-10:
+        if abs(valor) < 1e-12:
             return round(medio * 100, 2)
         if valor > 0:
             minimo = medio
         else:
             maximo = medio
-
     return round(medio * 100, 2)
 
 # ---------------------------------------------------------
@@ -152,41 +159,42 @@ fecha_inicio = st.date_input("Fecha de financiación",datetime.today())
 opciones=[2.7,3,3.5,4,5,6,7,8,9]
 cuota_porcentaje=st.selectbox("Velocidad de reembolso (% del capital inicial)",opciones)
 
-opciones_seguro={
-    "No":0,
-    "Un titular Light":0.0035,
-    "Un titular Full/Senior":0.0061,
-    "Dos titulares Full/Full":0.0104,
-    "Dos titulares Senior/Senior":0.0104,
-    "Dos titulares Light/Light":0.0059,
-    "Dos titulares Full/Light":0.0082
+# Seguro opcional, incluye "No"
+opciones_seguro = {
+    "No": 0,
+    "Un titular Light": 0.0035,
+    "Un titular Full/Senior": 0.0061,
+    "Dos titulares Full/Full": 0.0104,
+    "Dos titulares Senior/Senior": 0.0104,
+    "Dos titulares Light/Light": 0.0059,
+    "Dos titulares Full/Light": 0.0082
 }
-seguro_str=st.selectbox("Seguro mensual sobre saldo pendiente + interés",list(opciones_seguro.keys()))
-seguro_tasa=opciones_seguro[seguro_str]
+
+seguro_str = st.selectbox(
+    "Seguro mensual sobre saldo pendiente + interés",
+    list(opciones_seguro.keys())  # <-- incluye "No"
+)
+
+seguro_tasa = opciones_seguro[seguro_str]
 
 # ---------------------------------------------------------
-# CALCULO
+# CALCULO Y RESULTADOS
 # ---------------------------------------------------------
 
 if st.button("Calcular"):
-    tabla=simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
-    st.dataframe(tabla,use_container_width=True)
+    tabla = simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa)
+    st.dataframe(tabla, use_container_width=True)
 
-    total_intereses=round(tabla["Intereses total (€)"].sum(),2)
-    total_seguro=round(tabla["Seguro (€)"].sum(),2)
-    total_capital_intereses=round(tabla["Cuota (€)"].sum(),2)
-    total_con_seguro=round(total_capital_intereses+total_seguro,2)
+    total_intereses = round(tabla["Intereses total (€)"].sum(),2)
+    total_seguro = round(tabla["Seguro (€)"].sum(),2)
+    total_capital_intereses = round(tabla["Cuota (€)"].sum(),2)
+    total_con_seguro = round(total_capital_intereses + total_seguro,2)
 
     # TAE sin seguro
-    cuotas_tae=[-capital]+list(tabla["Cuota (€)"])
-    tiempos=[0]
-    for f in tabla["Fecha recibo"]:
-        dias=(pd.to_datetime(f)-pd.to_datetime(fecha_inicio)).days
-        tiempos.append(dias/365)
+    cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
+    tae = calcular_tae_preciso(cuotas_tae, tabla["Fecha recibo"], fecha_inicio)
 
-    tae = round(calcular_tae(cuotas_tae, tiempos), 2)  # <-- TAE redondeada a dos decimales
-
-    resumen_dict={
+    resumen_dict = {
         "Concepto":[
             "Duración (meses)",
             "Intereses (€)",
@@ -204,6 +212,7 @@ if st.button("Calcular"):
             tae
         ]
     }
-    df_resumen=pd.DataFrame(resumen_dict)
+
+    df_resumen = pd.DataFrame(resumen_dict)
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
