@@ -30,31 +30,34 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
     
-    # Inicializar
     interes_diciembre = 0.0
     interes_enero = 0.0
     interes_total = 0.0
 
-    # Determinar si hay cambio de año (enero tras diciembre)
+    # Comprobar si es enero y hay cambio de bisiesto entre año anterior y actual
     if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
-        # Tramo diciembre: 2 diciembre → 31 diciembre
-        inicio_dic = date(fecha_fin.year - 1, 12, 2)
-        fin_dic = date(fecha_fin.year - 1, 12, 31)
-        if fecha_inicio <= fin_dic:
-            dias_dic = (fin_dic - max(fecha_inicio, inicio_dic)).days + 1
-            base_dic = 366 if calendar.isleap(fin_dic.year) else 365
-            interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
+        year_prev = fecha_fin.year - 1
+        year_curr = fecha_fin.year
+        bisiesto_prev = calendar.isleap(year_prev)
+        bisiesto_curr = calendar.isleap(year_curr)
+        if bisiesto_prev != bisiesto_curr:
+            # Dividir intereses en diciembre y enero
+            inicio_dic = date(year_prev, 12, 2)
+            fin_dic = date(year_prev, 12, 31)
+            if fecha_inicio <= fin_dic:
+                dias_dic = (fin_dic - max(fecha_inicio, inicio_dic)).days + 1
+                base_dic = 366 if bisiesto_prev else 365
+                interes_diciembre = round(capital * (tin / 100) * dias_dic / base_dic, 2)
 
-            # Tramo enero: 1 enero → fecha_fin
-            inicio_ene = date(fecha_fin.year, 1, 1)
-            dias_ene = (fecha_fin - max(fecha_inicio, inicio_ene)).days + 1
-            base_ene = 366 if calendar.isleap(inicio_ene.year) else 365
-            interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
+                inicio_ene = date(year_curr, 1, 1)
+                dias_ene = (fecha_fin - max(fecha_inicio, inicio_ene)).days + 1
+                base_ene = 366 if bisiesto_curr else 365
+                interes_enero = round(capital * (tin / 100) * dias_ene / base_ene, 2)
 
-            interes_total = round(interes_diciembre + interes_enero, 2)
-            return interes_total, interes_diciembre, interes_enero
+                interes_total = round(interes_diciembre + interes_enero, 2)
+                return interes_total, interes_diciembre, interes_enero
 
-    # Mes normal (no cambio de bisiesto)
+    # Mes normal
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = round(capital * (tin / 100) * dias_tramo / base, 2)
