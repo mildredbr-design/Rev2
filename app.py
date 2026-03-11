@@ -32,8 +32,8 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     - Normalmente usa base 365/366 según el año del tramo.
     - Si cruza diciembre → enero con cambio bisiesto/no bisiesto, divide el tramo y aplica fracción exacta a enero.
     """
-    fecha_inicio = pd.to_datetime(fecha_inicio)
-    fecha_fin = pd.to_datetime(fecha_fin)
+    fecha_inicio = pd.to_datetime(fecha_inicio).date()
+    fecha_fin = pd.to_datetime(fecha_fin).date()
     interes_total = 0.0
 
     # Caso especial: cruce de diciembre a enero
@@ -60,8 +60,9 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
     cuota = capital * (cuota_porcentaje / 100)
-    fecha_pago = primer_recibo(fecha_inicio)
-    fecha_anterior = fecha_inicio
+    fecha_inicio_dt = fecha_inicio if isinstance(fecha_inicio, date) else fecha_inicio.date()
+    fecha_pago = primer_recibo(fecha_inicio_dt)
+    fecha_anterior = fecha_inicio_dt
     datos = []
     mes = 1
 
@@ -120,8 +121,8 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
 
 # ---------- FUNCIONES TAE ----------
 def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, fecha_fin):
-    fecha_inicio = pd.to_datetime(fecha_inicio)
-    fecha_fin = pd.to_datetime(fecha_fin)
+    fecha_inicio = pd.to_datetime(fecha_inicio).date()
+    fecha_fin = pd.to_datetime(fecha_fin).date()
     dias_totales = (fecha_fin - fecha_inicio).days
     fraccion_total = 0.0
     for i in range(dias_totales):
@@ -181,7 +182,10 @@ if st.button("Calcular"):
 
     cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
     tiempos = [0] + [
-        calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f)
+        calcular_fraccion_entre_financiacion_y_vencimiento(
+            fecha_inicio,
+            f.date() if isinstance(f, pd.Timestamp) else f
+        )
         for f in tabla["Fecha recibo"]
     ]
 
