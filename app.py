@@ -6,8 +6,8 @@ from decimal import Decimal, ROUND_HALF_UP, getcontext
 
 getcontext().prec = 10
 
-st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving con Tipo de Cálculo Avanzado")
+st.set_page_config(page_title="Simulador Revolving Completo", layout="wide")
+st.title("💳 Simulador Revolving con Tipo de Cálculo Avanzado y TAE Exacta")
 
 # -------------------------------
 # FUNCIONES AUXILIARES
@@ -28,7 +28,7 @@ def siguiente_recibo(fecha):
     return date(fecha.year, fecha.month + 1, 2)
 
 # -------------------------------
-# INTERESES
+# CALCULO INTERESES CON BISESTO
 # -------------------------------
 def calcular_interes(capital, tin, inicio, fin):
     capital = Decimal(str(capital))
@@ -36,17 +36,18 @@ def calcular_interes(capital, tin, inicio, fin):
     inicio = pd.to_datetime(inicio).date()
     fin = pd.to_datetime(fin).date()
 
+    # Ajuste diciembre/enero con cambio bisiesto
     if fin.month == 1 and inicio.year < fin.year:
-        prev_year = inicio.year
-        next_year = fin.year
-        bisiesto_prev = calendar.isleap(prev_year)
-        bisiesto_next = calendar.isleap(next_year)
-        if bisiesto_prev != bisiesto_next:
+        year_prev = inicio.year
+        year_curr = fin.year
+        bisiesto_prev = calendar.isleap(year_prev)
+        bisiesto_curr = calendar.isleap(year_curr)
+        if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
             interes_dic = (capital * tin_decimal * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
-            dias_ene = (fin - date(next_year,1,1)).days + 1
-            base_ene = 366 if bisiesto_next else 365
+            dias_ene = (fin - date(year_curr, 1, 1)).days + 1
+            base_ene = 366 if bisiesto_curr else 365
             interes_ene = (capital * tin_decimal * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
             total = (interes_dic + interes_ene).quantize(Decimal("0.00001"))
             return total, interes_dic, interes_ene
@@ -68,7 +69,9 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
     datos = []
     mes = 1
 
-    # Según tipo de cálculo
+    vitesse_valores = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
+
+    # Definir la cuota inicial según tipo de cálculo
     if tipo_calculo == "Vitesse":
         cuota = (capital * Decimal(str(valor)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
     elif tipo_calculo == "Cuota":
@@ -117,7 +120,7 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
     return pd.DataFrame(datos)
 
 # -------------------------------
-# CALCULO TAE
+# CALCULO TAE EXACTA
 # -------------------------------
 def calcular_tae(cuotas, fechas):
     tiempos = [0.0]
@@ -161,20 +164,20 @@ def calcular_tae(cuotas, fechas):
 # -------------------------------
 # INTERFAZ STREAMLIT
 # -------------------------------
+tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"])
+
+vitesse_valores = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
+
 capital = st.number_input("Capital inicial (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
 
-tipo_calculo = st.selectbox("Tipo de cálculo", ["Vitesse", "Cuota", "Duración"])
-
 # Campo dinámico según tipo
 if tipo_calculo == "Vitesse":
-    opciones_vitesse = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
-    valor = st.selectbox("Porcentaje de reembolso mensual (%)", opciones_vitesse)
+    valor = st.selectbox("Porcentaje de reembolso mensual (%)", vitesse_valores)
 elif tipo_calculo == "Cuota":
-    # Aquí usamos el mismo selectbox, pero con los importes a financiar
-    opciones_cuota = [600, 1200, 1800, 2400, 3000]  # <-- reemplaza con los importes reales que quieras
-    valor = st.selectbox("Importe de la cuota (€)", opciones_cuota)
+    opciones_cuota = [round(capital * v / 100, 2) for v in vitesse_valores]
+    valor = st.selectbox("Cuota mensual (€)", opciones_cuota)
 else:
     valor = st.number_input("Duración en meses", 1, 600, 36)
 
@@ -224,3 +227,13 @@ if st.button("Calcular"):
     df_resumen = pd.DataFrame(resumen_dict)
     st.subheader("📊 Resumen en tabla")
     st.table(df_resumen)
+
+    # Tabla detalle TAE
+    tabla_tae = pd.DataFrame({
+        "Fecha": fechas_tae,
+        "Cuota (sin seguro) (€)": cuotas_tae,
+        "Tiempo (años)": [round(t,5) for t in range(len(cuotas_tae))],  # aproximado simplificado
+        "Valor descontado": [round(c / ((1 + tae/100) ** t),5) for c,t in zip(cuotas_tae, range(len(cuotas_tae)))]
+    })
+    st.subheader("📈 Detalle cálculo TAE mes a mes")
+    st.dataframe(tabla_tae, use_container_width=True)
