@@ -26,17 +26,20 @@ def siguiente_recibo(fecha):
         return date(fecha.year, fecha.month + 1, 2)
 
 def interes_exacto_tramos(capital, tin, fecha_inicio, fecha_fin):
-    """Calcula interés exacto de un recibo, manejando tramos de año bisiesto y no bisiesto"""
+    """
+    Calcula el interés exacto de un recibo dividiendo el periodo
+    en tramos por año, ajustando correctamente bisiestos/no bisiestos.
+    """
     interes_total = 0.0
     fecha_actual = fecha_inicio
     while fecha_actual < fecha_fin:
-        # Fin del tramo: fin de año o fecha_fin
-        fin_tramo = min(date(fecha_actual.year,12,31), fecha_fin - timedelta(days=1))
+        fin_año = date(fecha_actual.year, 12, 31)
+        fin_tramo = min(fin_año, fecha_fin - timedelta(days=1))
         dias_tramo = (fin_tramo - fecha_actual).days + 1
         base = dias_ano(fecha_actual)
-        interes_total += capital * (tin/100) * dias_tramo / base
+        interes_total += capital * (tin / 100) * dias_tramo / base
         fecha_actual = fin_tramo + timedelta(days=1)
-    return round(interes_total,2)
+    return round(interes_total, 2)
 
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
     saldo = capital
@@ -56,7 +59,7 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio, seguro_tasa=0):
             cuota_final = round(saldo + interes,2)
             amort = round(saldo,2)
             saldo = 0
-            if seguro_tasa>0:
+            if seguro_tasa > 0:
                 seguro = round((amort + interes) * seguro_tasa,2)
             recibo_total = round(cuota_final + seguro,2)
             datos.append({
@@ -120,12 +123,12 @@ def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=10000):
         van_lista.clear()
         for i in range(len(cuotas)):
             van_lista.append(cuotas[i]/((1+tae)**tiempos[i]))
-        if abs(sum(van_lista))<tolerancia:
+        if abs(sum(van_lista)) < tolerancia:
             return redondear_decimal(tae*100,2)
-        if sum(van_lista)<0:
-            tae-=0.00001
+        if sum(van_lista) < 0:
+            tae -= 0.00001
         else:
-            tae+=0.00001
+            tae += 0.00001
     return redondear_decimal(tae*100,2)
 
 # ---------- INPUTS ----------
@@ -164,7 +167,7 @@ if st.button("Calcular"):
     try:
         tae = calcular_tae(cuotas_exactas, tiempos)
     except:
-        tae="Error"
+        tae = "Error"
 
     # Tabla resumen
     resumen_dict = {"Concepto":["Duración (meses)","Intereses (€)"]}
