@@ -108,16 +108,29 @@ def truncar_decimal(valor, decimales):
 def redondear_decimal(valor, decimales=6):
     return round(valor, decimales)
 
-def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha_vencimiento, dias_ano_base):
+def calcular_fraccion_entre_financiacion_y_vencimiento(fecha_financiacion, fecha_vencimiento):
     fecha_financiacion = pd.to_datetime(fecha_financiacion)
     fecha_vencimiento = pd.to_datetime(fecha_vencimiento)
-    dias_ano_actual = 366 if calendar.isleap(fecha_vencimiento.year) else 365
-    fraccion_año = (fecha_vencimiento - fecha_financiacion).days / dias_ano_base
-    return truncar_decimal(fraccion_año, 7)
+    fraccion_total = 0.0
+    fecha_actual = fecha_financiacion
+
+    while fecha_actual < fecha_vencimiento:
+        fin_ano = pd.Timestamp(year=fecha_actual.year, month=12, day=31)
+        dias_ano_actual = 366 if calendar.isleap(fecha_actual.year) else 365
+
+        if fecha_vencimiento <= fin_ano:
+            dias = (fecha_vencimiento - fecha_actual).days
+            fraccion_total += dias / dias_ano_actual
+            break
+        else:
+            dias = (fin_ano - fecha_actual).days + 1
+            fraccion_total += dias / dias_ano_actual
+            fecha_actual = fin_ano + pd.Timedelta(days=1)
+
+    return fraccion_total
 
 def calcular_tae(cuotas, tiempos, tolerancia=0.000001, max_iter=1000):
-    # TAE inicial aproximada
-    tae = (1 + 0.2179/12)**12 - 1
+    tae = 0.2179  # TAE inicial aproximada 21.79%
     van_lista = []
     for _ in range(max_iter):
         van_lista.clear()
@@ -166,12 +179,9 @@ if st.button("Calcular"):
         total_seguro = tabla["Seguro (€)"].sum()
         st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
 
-    # ---------- CÁLCULO TAE CON TU FUNCION ----------
-    cuotas_exactas = list(tabla["Recibo total exacto"].values)
-    tiempos = []
-    for i in range(len(cuotas_exactas)):
-        tiempo_i = calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, tabla["Fecha recibo"].iloc[i], 365)
-        tiempos.append(tiempo_i)
+    # ---------- CÁLCULO TAE ----------
+    cuotas_exactas = [-capital] + list(tabla["Recibo total exacto"].values)
+    tiempos = [0] + [calcular_fraccion_entre_financiacion_y_vencimiento(fecha_inicio, f) for f in tabla["Fecha recibo"]]
 
     try:
         tae = calcular_tae(cuotas_exactas, tiempos)
@@ -179,7 +189,7 @@ if st.button("Calcular"):
     except:
         st.write("No se pudo calcular la TAE")
 
-    # ---------- EXPORTAR EXCEL CON RESUMEN ----------
+    # ---------- EXPORTAR EXCEL ----------
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         tabla.drop(columns=["Recibo total exacto"]).to_excel(writer, index=False, sheet_name="Amortización")
