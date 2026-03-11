@@ -5,7 +5,7 @@ from datetime import datetime, date
 import calendar
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador de Préstamo Revolving")
+st.title("💳 Simulador de Préstamo Revolving con Seguro")
 
 # -------- DIAS DEL AÑO --------
 def dias_ano(fecha):
@@ -43,7 +43,7 @@ def calcular_interes(capital, tin, fecha_inicio, fecha_fin):
             base = dias_ano(fecha_actual)
             interes_total += capital * (tin/100) * dias / base
             fecha_actual = date(fecha_actual.year + 1, 1, 1)
-    return round(interes_total, 2)  # Redondeo a 2 decimales
+    return round(interes_total, 2)
 
 # -------- SIMULADOR --------
 def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
@@ -59,15 +59,18 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
 
     while saldo > 0:
 
-        # Interés del periodo
         interes = calcular_interes(saldo, tin, fecha_anterior, fecha_pago)
         dias = (fecha_pago - fecha_anterior).days
 
-        # Último recibo
+        # seguro = saldo pendiente + interés del mes
+        seguro = round(saldo + interes, 2)
+
+        # último recibo
         if saldo + interes <= cuota:
             cuota_final = round(saldo + interes, 2)
             amort = saldo
             saldo = 0
+            seguro = round(saldo + interes, 2)  # último seguro
             datos.append({
                 "Mes": mes,
                 "Fecha recibo": fecha_pago,
@@ -75,11 +78,12 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
                 "Cuota (€)": cuota_final,
                 "Intereses (€)": interes,
                 "Amortización (€)": round(amort,2),
-                "Saldo (€)": round(saldo,2)
+                "Saldo (€)": round(saldo,2),
+                "Seguro (€)": seguro
             })
             break
 
-        # Cuota fija mensual
+        # cuota fija mensual
         amort = round(cuota - interes, 2)
         saldo = round(saldo - amort, 2)
 
@@ -90,12 +94,12 @@ def simulador(capital, tin, cuota_porcentaje, fecha_inicio):
             "Cuota (€)": cuota,
             "Intereses (€)": interes,
             "Amortización (€)": amort,
-            "Saldo (€)": saldo
+            "Saldo (€)": saldo,
+            "Seguro (€)": seguro
         })
 
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
-
         mes += 1
 
         if mes > 600:
@@ -117,12 +121,20 @@ if st.button("Calcular"):
     st.dataframe(tabla, use_container_width=True)
 
     st.subheader("📊 Resumen")
-    total_pagado = tabla["Cuota (€)"].sum()
+
+    total_cuota = tabla["Cuota (€)"].sum()
     total_intereses = tabla["Intereses (€)"].sum()
-    col1, col2, col3 = st.columns(3)
+    total_seguro = tabla["Seguro (€)"].sum()
+    total_con_seguro = total_cuota + total_seguro
+
+    col1, col2, col3, col4 = st.columns(4)
     col1.metric("Meses totales", len(tabla))
-    col2.metric("Total pagado (€)", round(total_pagado,2))
-    col3.metric("Intereses totales (€)", round(total_intereses,2))
+    col2.metric("Total pagado (€)", round(total_cuota,2))
+    col3.metric("Intereses (€)", round(total_intereses,2))
+    col4.metric("Total seguro (€)", round(total_seguro,2))
+
+    st.write(f"**Coste total a pagar sin seguro:** {round(total_cuota,2)} €")
+    st.write(f"**Coste total a pagar con seguro:** {round(total_cuota + total_seguro,2)} €")
 
     # -------- EXPORTAR EXCEL --------
     output = BytesIO()
@@ -132,6 +144,6 @@ if st.button("Calcular"):
     st.download_button(
         label="📥 Descargar Excel",
         data=excel_data,
-        file_name="amortizacion_revolving.xlsx",
+        file_name="amortizacion_revolving_seguro.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
