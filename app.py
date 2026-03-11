@@ -3,9 +3,10 @@ import pandas as pd
 from io import BytesIO
 from datetime import datetime, date
 import calendar
+import numpy as np
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador de Préstamo Revolving con Seguro Opcional")
+st.title("💳 Simulador de Préstamo Revolving con Seguro Opcional y TAE")
 
 # -------- DIAS DEL AÑO --------
 def dias_ano(fecha):
@@ -155,14 +156,45 @@ if st.button("Calcular"):
         total_seguro = tabla["Seguro (€)"].sum()
         st.write(f"**Coste total con seguro (capital + intereses + seguro):** {round(total_cuota + total_seguro,2)} €")
 
-    # -------- EXPORTAR EXCEL --------
+    # -------- CALCULO TAE --------
+    flujos = [-capital] + list(tabla["Recibo total (€)"].values)
+    try:
+        tasa_mensual = np.irr(flujos)
+        tae = (1 + tasa_mensual)**12 - 1
+        tae_pct = round(tae*100,2)
+        st.write(f"**TAE aproximada:** {tae_pct} %")
+    except:
+        tae_pct = None
+        st.write("No se pudo calcular la TAE")
+
+    # -------- EXPORTAR EXCEL CON RESUMEN --------
     output = BytesIO()
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        tabla.to_excel(writer, index=False)
+        tabla.to_excel(writer, index=False, sheet_name="Amortización")
+        
+        # Añadir hoja resumen
+        resumen = {
+            "Concepto": ["Coste total (capital + intereses)"],
+            "Importe (€)": [round(total_cuota,2)]
+        }
+        if seguro_tasa == 0:
+            resumen["Concepto"].append("Seguro no contratado")
+            resumen["Importe (€)"].append(0)
+        else:
+            resumen["Concepto"].append("Coste total con seguro (capital + intereses + seguro)")
+            resumen["Importe (€)"].append(round(total_cuota + total_seguro,2))
+        
+        if tae_pct is not None:
+            resumen["Concepto"].append("TAE aproximada (%)")
+            resumen["Importe (€)"].append(tae_pct)
+        
+        df_resumen = pd.DataFrame(resumen)
+        df_resumen.to_excel(writer, index=False, sheet_name="Resumen")
+
     excel_data = output.getvalue()
     st.download_button(
-        label="📥 Descargar Excel",
+        label="📥 Descargar Excel con resumen",
         data=excel_data,
-        file_name="amortizacion_revolving_seguro_opcional.xlsx",
+        file_name="amortizacion_revolving_seguro_tae.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
