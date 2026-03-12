@@ -258,58 +258,134 @@ seguro_tasa=opciones_seguro[seguro_str]
 # ---------------------------------------------------------
 # RESULTADOS
 # ---------------------------------------------------------
-
 if st.button("Calcular") and valor is not None:
 
     tabla=simulador(capital,tin,tipo_calculo,valor,fecha_inicio,seguro_tasa)
 
+    # Si no hay seguro eliminar columna
+    if seguro_tasa==0 and "Seguro (€)" in tabla.columns:
+        tabla=tabla.drop(columns=["Seguro (€)"])
+
     st.dataframe(tabla,use_container_width=True)
 
     total_intereses=round(tabla["Intereses total (€)"].sum(),2)
-    total_seguro=round(tabla["Seguro (€)"].sum(),2)
     total_capital_intereses=round(tabla["Cuota (€)"].sum(),2)
+
+    if seguro_tasa>0:
+        total_seguro=round(tabla["Seguro (€)"].sum(),2)
 
     cuotas_tae=[-capital]+list(tabla["Cuota (€)"])
     fechas_tae=[fecha_inicio]+list(tabla["Fecha recibo"])
 
     tae=calcular_tae(cuotas_tae,fechas_tae)
 
-    resumen_dict={
+    # ---------------------------------------------------------
+    # RESUMEN
+    # ---------------------------------------------------------
+
+    if seguro_tasa>0:
+
+        resumen_dict={
         "Concepto":[
         "Duración (meses)",
         "Intereses (€)",
         "Seguro (€) total",
-        "Coste total (capital+intereses)",
+        "Coste total (capital+intereses+seguro)",
         "TAE (%)"
         ],
         "Valor":[
         len(tabla),
         total_intereses,
         total_seguro,
+        round(total_capital_intereses+total_seguro,2),
+        tae
+        ]
+        }
+
+    else:
+
+        resumen_dict={
+        "Concepto":[
+        "Duración (meses)",
+        "Intereses (€)",
+        "Coste total (capital+intereses)",
+        "TAE (%)"
+        ],
+        "Valor":[
+        len(tabla),
+        total_intereses,
         total_capital_intereses,
         tae
         ]
-    }
+        }
 
     df_resumen=pd.DataFrame(resumen_dict)
 
     st.subheader("Resumen")
     st.table(df_resumen)
-# ---------------------------------------------------------
-# EXPORTAR A EXCEL
-# ---------------------------------------------------------
 
-output = BytesIO()
-with pd.ExcelWriter(output) as writer:  # Eliminamos engine="xlsxwriter"
-    tabla.to_excel(writer, sheet_name="Cuadro Amortización", index=False)
-    df_resumen.to_excel(writer, sheet_name="Resumen", index=False)
+    # ---------------------------------------------------------
+    # EXPORTAR A EXCEL (MEJORADO)
+    # ---------------------------------------------------------
 
-excel_data = output.getvalue()
+    output = BytesIO()
 
-st.download_button(
-    label="📥 Descargar cuadro de amortización en Excel",
-    data=excel_data,
-    file_name="simulacion_revolving.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
-    
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+
+        tabla.to_excel(writer, sheet_name="Cuadro Amortización", index=False)
+        df_resumen.to_excel(writer, sheet_name="Resumen", index=False)
+
+        workbook = writer.book
+        hoja_tabla = writer.sheets["Cuadro Amortización"]
+        hoja_resumen = writer.sheets["Resumen"]
+
+        formato_header = workbook.add_format({
+            "bold":True,
+            "align":"center",
+            "border":1
+        })
+
+        formato_euro = workbook.add_format({
+            "num_format":"#,##0.00 €"
+        })
+
+        # Encabezados tabla
+        for col_num,value in enumerate(tabla.columns.values):
+            hoja_tabla.write(0,col_num,value,formato_header)
+
+        # Auto ancho columnas
+        for i,col in enumerate(tabla.columns):
+            ancho=max(tabla[col].astype(str).map(len).max(),len(col))+2
+            hoja_tabla.set_column(i,i,ancho)
+
+        columnas_euro=[
+        "Cuota (€)",
+        "Intereses total (€)",
+        "Seguro (€)",
+        "Amortización (€)",
+        "Saldo (€)",
+        "Recibo total (€)"
+        ]
+
+        for col in columnas_euro:
+            if col in tabla.columns:
+                idx=tabla.columns.get_loc(col)
+                hoja_tabla.set_column(idx,idx,None,formato_euro)
+
+        hoja_tabla.freeze_panes(1,0)
+
+        # Encabezados resumen
+        for col_num,value in enumerate(df_resumen.columns.values):
+            hoja_resumen.write(0,col_num,value,formato_header)
+
+        hoja_resumen.set_column(0,0,35)
+        hoja_resumen.set_column(1,1,20)
+
+    excel_data = output.getvalue()
+
+    st.download_button(
+        label="📥 Descargar cuadro de amortización en Excel",
+        data=excel_data,
+        file_name="simulacion_revolving.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
