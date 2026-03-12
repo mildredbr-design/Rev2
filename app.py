@@ -262,7 +262,7 @@ if st.button("Calcular") and valor is not None:
 
     tabla=simulador(capital,tin,tipo_calculo,valor,fecha_inicio,seguro_tasa)
 
-    # Si no hay seguro eliminar columna
+    # Quitar columna seguro si no hay seguro
     if seguro_tasa==0 and "Seguro (€)" in tabla.columns:
         tabla=tabla.drop(columns=["Seguro (€)"])
 
@@ -290,6 +290,7 @@ if st.button("Calcular") and valor is not None:
         "Duración (meses)",
         "Intereses (€)",
         "Seguro (€) total",
+        "Coste total (capital+intereses)",
         "Coste total (capital+intereses+seguro)",
         "TAE (%)"
         ],
@@ -297,6 +298,7 @@ if st.button("Calcular") and valor is not None:
         len(tabla),
         total_intereses,
         total_seguro,
+        total_capital_intereses,
         round(total_capital_intereses+total_seguro,2),
         tae
         ]
@@ -325,61 +327,15 @@ if st.button("Calcular") and valor is not None:
     st.table(df_resumen)
 
     # ---------------------------------------------------------
-    # EXPORTAR A EXCEL (MEJORADO)
+    # EXPORTAR A EXCEL
     # ---------------------------------------------------------
 
     output = BytesIO()
 
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-
+    # SOLUCIÓN 1 → sin engine para evitar error en Streamlit Cloud
+    with pd.ExcelWriter(output) as writer:
         tabla.to_excel(writer, sheet_name="Cuadro Amortización", index=False)
         df_resumen.to_excel(writer, sheet_name="Resumen", index=False)
-
-        workbook = writer.book
-        hoja_tabla = writer.sheets["Cuadro Amortización"]
-        hoja_resumen = writer.sheets["Resumen"]
-
-        formato_header = workbook.add_format({
-            "bold":True,
-            "align":"center",
-            "border":1
-        })
-
-        formato_euro = workbook.add_format({
-            "num_format":"#,##0.00 €"
-        })
-
-        # Encabezados tabla
-        for col_num,value in enumerate(tabla.columns.values):
-            hoja_tabla.write(0,col_num,value,formato_header)
-
-        # Auto ancho columnas
-        for i,col in enumerate(tabla.columns):
-            ancho=max(tabla[col].astype(str).map(len).max(),len(col))+2
-            hoja_tabla.set_column(i,i,ancho)
-
-        columnas_euro=[
-        "Cuota (€)",
-        "Intereses total (€)",
-        "Seguro (€)",
-        "Amortización (€)",
-        "Saldo (€)",
-        "Recibo total (€)"
-        ]
-
-        for col in columnas_euro:
-            if col in tabla.columns:
-                idx=tabla.columns.get_loc(col)
-                hoja_tabla.set_column(idx,idx,None,formato_euro)
-
-        hoja_tabla.freeze_panes(1,0)
-
-        # Encabezados resumen
-        for col_num,value in enumerate(df_resumen.columns.values):
-            hoja_resumen.write(0,col_num,value,formato_header)
-
-        hoja_resumen.set_column(0,0,35)
-        hoja_resumen.set_column(1,1,20)
 
     excel_data = output.getvalue()
 
