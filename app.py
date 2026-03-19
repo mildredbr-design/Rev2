@@ -53,6 +53,11 @@ def primer_recibo(fecha_inicio):
             month = fecha_inicio.month + 1
 
     return date(year, month, 2)
+
+def siguiente_recibo(fecha):
+    if fecha.month == 12:
+        return date(fecha.year + 1, 1, 2)
+    return date(fecha.year, fecha.month + 1, 2)
 # ---------------------------------------------------------
 # CALCULO INTERESES
 # ---------------------------------------------------------
