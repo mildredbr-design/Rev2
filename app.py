@@ -24,17 +24,35 @@ def primer_recibo(fecha_inicio):
         return date(fecha_inicio.year + 1, 1, 2)
     return date(fecha_inicio.year, fecha_inicio.month + 1, 2)
 
-FECHAS_BLOQUEO = pd.read_csv('./data/COFES_01_Date_Blocage.csv', sep=';', parse_dates=['Fecha_BLOQUEO'], dayfirst=True).sort_values(by='Fecha_BLOQUEO')
 
-    
-''Calcular la fecha del primer vencimiento en base a la fecha de bloqueo posterior a la fecha de financiación'''
-    proximas_db = FECHAS_BLOQUEO[FECHAS_BLOQUEO['Fecha_BLOQUEO'] >= fecha_financiacion]
-    fecha_primer_vencimiento = proximas_db['Fecha_BLOQUEO'].iloc[0].replace(day=dia_pago) + pd.DateOffset(months=1)
-def siguiente_recibo(fecha):
-    if fecha.month == 12:
-        return date(fecha.year + 1, 1, 2)
-    return date(fecha.year, fecha.month + 1, 2)
+def primer_recibo(fecha_inicio):
+    dia = fecha_inicio.day
 
+    # Caso especial: si es antes del día 2, se cobra ese mismo mes
+    if dia < 2:
+        return fecha_inicio.replace(day=2)
+
+    # Si abre del 25 en adelante → saltamos un mes
+    if dia >= 25:
+        if fecha_inicio.month >= 11:
+            # Manejo de cambio de año
+            year = fecha_inicio.year + 1 if fecha_inicio.month == 11 else fecha_inicio.year + 1
+            month = (fecha_inicio.month + 2) % 12
+            if month == 0:
+                month = 12
+        else:
+            year = fecha_inicio.year
+            month = fecha_inicio.month + 2
+    else:
+        # Caso normal → mes siguiente
+        if fecha_inicio.month == 12:
+            year = fecha_inicio.year + 1
+            month = 1
+        else:
+            year = fecha_inicio.year
+            month = fecha_inicio.month + 1
+
+    return date(year, month, 2)
 # ---------------------------------------------------------
 # CALCULO INTERESES
 # ---------------------------------------------------------
