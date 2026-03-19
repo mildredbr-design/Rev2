@@ -23,7 +23,10 @@ def primer_recibo(fecha_inicio):
     if fecha_inicio.month == 12:
         return date(fecha_inicio.year + 1, 1, 2)
     return date(fecha_inicio.year, fecha_inicio.month + 1, 2)
-
+    
+''Calcular la fecha del primer vencimiento en base a la fecha de bloqueo posterior a la fecha de financiación'''
+    proximas_db = FECHAS_BLOQUEO[FECHAS_BLOQUEO['Fecha_BLOQUEO'] >= fecha_financiacion]
+    fecha_primer_vencimiento = proximas_db['Fecha_BLOQUEO'].iloc[0].replace(day=dia_pago) + pd.DateOffset(months=1)
 def siguiente_recibo(fecha):
     if fecha.month == 12:
         return date(fecha.year + 1, 1, 2)
