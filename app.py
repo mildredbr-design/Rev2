@@ -23,6 +23,9 @@ def primer_recibo(fecha_inicio):
     if fecha_inicio.month == 12:
         return date(fecha_inicio.year + 1, 1, 2)
     return date(fecha_inicio.year, fecha_inicio.month + 1, 2)
+
+FECHAS_BLOQUEO = pd.read_csv('./data/COFES_01_Date_Blocage.csv', sep=';', parse_dates=['Fecha_BLOQUEO'], dayfirst=True).sort_values(by='Fecha_BLOQUEO')
+
     
 ''Calcular la fecha del primer vencimiento en base a la fecha de bloqueo posterior a la fecha de financiación'''
     proximas_db = FECHAS_BLOQUEO[FECHAS_BLOQUEO['Fecha_BLOQUEO'] >= fecha_financiacion]
