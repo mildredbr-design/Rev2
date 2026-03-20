@@ -20,40 +20,39 @@ dia_recibo = st.selectbox(
 st.write(f"Día del recibo seleccionado: {dia_recibo}")
 
 # ---------------------------------------------------------
-# FUNCIONES AUXILIARES
+# FUNCIONES DE FECHAS
 # ---------------------------------------------------------
-def dias_ano(fecha):
-    return 366 if calendar.isleap(fecha.year) else 365
-
 def primer_recibo(fecha_inicio, dia_recibo):
-    """Devuelve la fecha del primer recibo usando el día seleccionado"""
-    year = fecha_inicio.year
-    month = fecha_inicio.month
+    """Primer recibo respetando el día seleccionado y siempre >= fecha_inicio"""
+    year, month = fecha_inicio.year, fecha_inicio.month
     day = min(dia_recibo, calendar.monthrange(year, month)[1])
     fecha = fecha_inicio.replace(day=day)
     if fecha < fecha_inicio:
+        # Saltar al siguiente mes si ya pasó
         if month == 12:
-            year += 1
             month = 1
+            year += 1
         else:
             month += 1
         day = min(dia_recibo, calendar.monthrange(year, month)[1])
         fecha = fecha.replace(year=year, month=month, day=day)
     return fecha
 
-def siguiente_recibo(fecha):
-    """Devuelve la fecha del siguiente recibo manteniendo el día"""
-    year = fecha.year
-    month = fecha.month + 1
+def siguiente_recibo(fecha_actual):
+    """Recibo siguiente manteniendo el mismo día"""
+    year, month = fecha_actual.year, fecha_actual.month + 1
     if month > 12:
         month = 1
         year += 1
-    day = min(fecha.day, calendar.monthrange(year, month)[1])
-    return fecha.replace(year=year, month=month, day=day)
+    day = min(fecha_actual.day, calendar.monthrange(year, month)[1])
+    return fecha_actual.replace(year=year, month=month, day=day)
 
 # ---------------------------------------------------------
-# CÁLCULO INTERESES
+# FUNCIONES AUXILIARES
 # ---------------------------------------------------------
+def dias_ano(fecha):
+    return 366 if calendar.isleap(fecha.year) else 365
+
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     capital = Decimal(str(capital))
     tin = Decimal(str(tin)) / Decimal("100")
@@ -70,14 +69,10 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         if bisiesto_prev != bisiesto_curr:
             dias_dic = 29
             base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = (
-                capital * tin * Decimal(dias_dic) / Decimal(base_dic)
-            ).quantize(Decimal("0.00001"))
+            interes_diciembre = (capital * tin * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
             dias_ene = (fecha_fin - date(year_curr,1,1)).days + 1
             base_ene = 366 if bisiesto_curr else 365
-            interes_enero = (
-                capital * tin * Decimal(dias_ene) / Decimal(base_ene)
-            ).quantize(Decimal("0.00001"))
+            interes_enero = (capital * tin * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
             return (interes_diciembre + interes_enero).quantize(Decimal("0.00001")), interes_diciembre, interes_enero
 
     dias_tramo = (fecha_fin - fecha_inicio).days
@@ -133,7 +128,7 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0, di
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
         mes += 1
-        if mes > 600:
+        if mes > 600:  # seguridad
             break
 
     return pd.DataFrame(datos)
@@ -172,7 +167,6 @@ vitesse_valores = [2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
 capital = st.number_input("Importe de financiación (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
-
 tipo_calculo = st.selectbox("Tipo de cálculo", ["Seleccionar", "Vitesse", "Cuota", "Duración"])
 valor = None
 
@@ -207,7 +201,6 @@ opciones_seguro = {
     "Dos titulares Light/Light":0.0059,
     "Dos titulares Full/Light":0.0082
 }
-
 seguro_str = st.selectbox("Seguro mensual", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
 
@@ -250,4 +243,4 @@ if st.button("Calcular") and valor is not None:
         data=excel_data,
         file_name="simulacion_revolving.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            )
