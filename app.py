@@ -47,18 +47,12 @@ def siguiente_recibo(fecha_actual):
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
-
 def dias_ano(fecha):
     if isinstance(fecha, pd.Timestamp):
         fecha = fecha.date()
     return 366 if calendar.isleap(fecha.year) else 365
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
-    """
-    Calcula los intereses exactos de un capital entre fecha_inicio y fecha_fin,
-    desglosando diciembre y enero solo si hay cambio de base (bisiesto/no bisiesto).
-    Ajuste: ya no suma +1 a los días de diciembre.
-    """
     capital = Decimal(str(capital))
     tin = Decimal(str(tin)) / Decimal("100")
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
@@ -67,27 +61,22 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     interes_diciembre = Decimal("0")
     interes_enero = Decimal("0")
 
-    # Detectar cruce de año
     if fecha_fin.year != fecha_inicio.year:
-        # Solo dividir si los años tienen distinto número de días
         base_inicio = 366 if calendar.isleap(fecha_inicio.year) else 365
         base_fin = 366 if calendar.isleap(fecha_fin.year) else 365
 
         if base_inicio != base_fin:
-            # Interés diciembre (año inicial)
             fin_dic = date(fecha_inicio.year, 12, 31)
-            dias_dic = (fin_dic - fecha_inicio).days  # ⚡ Ajuste aquí, no +1
+            dias_dic = (fin_dic - fecha_inicio).days
             interes_diciembre = (capital * tin * Decimal(dias_dic) / Decimal(base_inicio)).quantize(Decimal("0.00001"))
 
-            # Interés enero (año siguiente)
             inicio_ene = date(fecha_fin.year, 1, 1)
-            dias_ene = (fecha_fin - inicio_ene).days + 1  # enero sí mantiene +1
+            dias_ene = (fecha_fin - inicio_ene).days + 1
             interes_enero = (capital * tin * Decimal(dias_ene) / Decimal(base_fin)).quantize(Decimal("0.00001"))
 
             interes_total = (interes_diciembre + interes_enero).quantize(Decimal("0.00001"))
             return interes_total, interes_diciembre, interes_enero
 
-    # Caso normal (mismo año o años con misma base)
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = (capital * tin * Decimal(dias_tramo) / Decimal(base)).quantize(Decimal("0.00001"))
@@ -141,32 +130,23 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0, di
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
         mes += 1
-        if mes > 600:  # seguridad
+        if mes > 600:
             break
 
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
-# # ---------------------------------------------------------
 # CALCULO TAE
 # ---------------------------------------------------------
-from decimal import Decimal
-from datetime import datetime, date
-import pandas as pd
-import calendar
-import streamlit as st
-
 def calcular_tae(cuotas, fechas, capital, tin, duracion):
-    """
-    Calcula la TAE:
-    - Si capital < 6000 €, se usa aproximación: TAE ≈ (1 + TIN/12)^duración - 1
-    - Si capital >= 6000 €, se calcula mediante VAN iterativo con flujos y fechas
-    """
+    import calendar
+    from decimal import Decimal
     def dias_ano(fecha):
         if isinstance(fecha, pd.Timestamp):
             fecha = fecha.date()
         return 366 if calendar.isleap(fecha.year) else 365
 
+    # Condicional por capital < 6000
     if capital < 6000:
         r = Decimal(str(tin)) / Decimal("100") / Decimal("12")
         tae = ((1 + r) ** Decimal(str(duracion)) - 1) * 100
@@ -194,49 +174,10 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
             maximo = medio
     return round(medio * 100, 2)
 
-
-# ------------------------------
-# BLOQUE STREAMLIT: Preparar flujos y calcular TAE
-# ------------------------------
-if st.button("Calcular"):
-
-    # Verificar que tabla existe y tiene datos
-    if 'tabla' not in locals() or len(tabla) == 0:
-        st.error("Primero genera la tabla de amortización.")
-        st.stop()
-
-    # Duración en meses
-    duracion = len(tabla)
-
-    # Primer flujo: capital recibido (negativo)
-    flujos = [-float(Decimal(str(capital)))]
-
-    # Cuotas convertidas a float seguro
-    cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
-    flujos += cuotas_lista
-
-    # Fechas correspondientes a los flujos
-    fechas = [fecha_inicio] + list(tabla["Fecha"])
-
-    # Convertir todas las fechas a tipo date
-    fechas_tae = []
-    for f in fechas:
-        if isinstance(f, pd.Timestamp):
-            fechas_tae.append(f.date())
-        elif isinstance(f, datetime):
-            fechas_tae.append(f.date())
-        elif isinstance(f, date):
-            fechas_tae.append(f)
-        else:
-            raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
-
-    # Calcular TAE
-    tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), duracion)
-    st.write(f"📈 TAE calculada: {tae} %")
-# -------------------------------------------------------inputTS
+# ---------------------------------------------------------
+# Inputs
 # ---------------------------------------------------------
 vitesse_valores = [2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
-
 capital = st.number_input("Importe de financiación (€)", 0.0, 1000000.0, 6000.0)
 tin = st.number_input("TIN anual (%)", 0.0, 100.0, 21.79)
 fecha_inicio = st.date_input("Fecha de financiación", datetime.today())
@@ -292,9 +233,25 @@ if st.button("Calcular") and valor is not None:
     total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
     total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0
 
-    cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
-    fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
-    tae = calcular_tae(flujos, fechas, float(capital), float(tin), int(duracion))
+    # Preparar flujos y fechas para TAE
+    duracion = len(tabla)
+    flujos = [-float(Decimal(str(capital)))]
+    cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
+    flujos += cuotas_lista
+    fechas = [fecha_inicio] + list(tabla["Fecha recibo"])
+    fechas_tae = []
+    for f in fechas:
+        if isinstance(f, pd.Timestamp):
+            fechas_tae.append(f.date())
+        elif isinstance(f, datetime):
+            fechas_tae.append(f.date())
+        elif isinstance(f, date):
+            fechas_tae.append(f)
+        else:
+            raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
+
+    # Calcular TAE
+    tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), duracion)
 
     # Resumen
     resumen_dict = {
@@ -316,4 +273,4 @@ if st.button("Calcular") and valor is not None:
         data=excel_data,
         file_name="simulacion_revolving.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    )
