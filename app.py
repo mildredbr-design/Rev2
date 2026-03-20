@@ -202,10 +202,11 @@ from decimal import Decimal
 from datetime import datetime, date
 import pandas as pd
 
-# Solo ejecutar si la tabla ya fue generada y capital es válido
+# # Solo ejecutar si la tabla ya fue generada y capital es válido
 if 'tabla' in locals() and len(tabla) > 0 and capital is not None:
+
     # Duración en meses
-duracion = len(tabla)
+    duracion = len(tabla)
 
     # Primer flujo: capital recibido (negativo)
     flujos = [-float(Decimal(str(capital)))]
@@ -230,7 +231,7 @@ duracion = len(tabla)
             raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
 
     # Calcular TAE usando la función calcular_tae
-    tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
+    tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), duracion)
 
     st.write(f"📈 TAE calculada: {tae} %")
 # -------------------------------------------------------inputTS
