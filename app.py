@@ -47,8 +47,15 @@ def siguiente_recibo(fecha_actual):
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
+
 def dias_ano(fecha):
+    if isinstance(fecha, pd.Timestamp):
+        fecha = fecha.date()
     return 366 if calendar.isleap(fecha.year) else 365
+
+fechas_tae = [pd.to_datetime(f).date() if not isinstance(f, datetime) else f.date() for f in fechas]
+
+
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
