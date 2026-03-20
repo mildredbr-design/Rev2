@@ -180,6 +180,7 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
         else:
             maximo = medio
     return round(medio * 100, 2)
+
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
