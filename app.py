@@ -243,7 +243,7 @@ if st.button("Calcular") and valor is not None:
 
     cuotas_tae = [-capital] + list(tabla["Cuota (€)"])
     fechas_tae = [fecha_inicio] + list(tabla["Fecha recibo"])
-    tae = calcular_tae(cuotas_tae, fechas_tae)
+    tae = calcular_tae(flujos, fechas, float(capital), float(tin), int(duracion))
 
     # Resumen
     resumen_dict = {
