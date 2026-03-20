@@ -13,17 +13,20 @@ st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
-# Selección de mes del recibo
-while True:
-    try:
-        mes = int(input("Seleccione el mes del recibo (1-12): "))
-        if 1 <= mes <= 12:
-            break
-        else:
-            print("Por favor, ingrese un número entre 1 y 12.")
-    except ValueError:
-        print("Entrada inválida. Ingrese un número entre 1 y 12.")
+# ---------------------------------------------------------
+# SELECCIÓN DEL MES DEL RECIBO
+# ---------------------------------------------------------
+mes = st.selectbox(
+    "Seleccione el mes del recibo (1-12)",
+    options=list(range(1, 13)),
+    format_func=lambda x: ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+                           "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][x-1]
+)
 
+nombre_mes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
+              "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mes-1]
+
+st.write(f"Mes seleccionado: {nombre_mes}")
 # Convertir el número del mes a nombre
 meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
