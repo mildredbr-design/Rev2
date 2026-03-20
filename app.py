@@ -194,9 +194,6 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
 # Primer flujo: capital recibido (negativo)
 flujos = [-float(capital)]
 
-# Segundo flujo: primera cuota
-flujos += [float(tabla.loc[0, "Cuota (€)"])]
-
 # Resto de cuotas normales (sin seguro ni comisión)
 flujos += pd.to_numeric(tabla["Cuota (€)"][1:], errors='coerce').astype(float).tolist()
 
