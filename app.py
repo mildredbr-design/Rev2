@@ -13,7 +13,25 @@ st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
 # ---------------------------------------------------------
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
+# Selección de mes del recibo
+while True:
+    try:
+        mes = int(input("Seleccione el mes del recibo (1-12): "))
+        if 1 <= mes <= 12:
+            break
+        else:
+            print("Por favor, ingrese un número entre 1 y 12.")
+    except ValueError:
+        print("Entrada inválida. Ingrese un número entre 1 y 12.")
 
+# Convertir el número del mes a nombre
+meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+nombre_mes = meses[mes - 1]
+
+print(f"Mes seleccionado: {nombre_mes}")
+
+# Aquí continúa tu código existente
 def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
