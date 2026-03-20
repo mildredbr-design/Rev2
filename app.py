@@ -204,6 +204,8 @@ import pandas as pd
 
 # Solo ejecutar si la tabla ya fue generada y capital es válido
 if 'tabla' in locals() and len(tabla) > 0 and capital is not None:
+    # Duración en meses
+duracion = len(tabla)
 
     # Primer flujo: capital recibido (negativo)
     flujos = [-float(Decimal(str(capital)))]
