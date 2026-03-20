@@ -14,27 +14,15 @@ st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
 # FUNCIONES AUXILIARES
 # ---------------------------------------------------------
 # ---------------------------------------------------------
-# SELECCIÓN DEL MES DEL RECIBO
 # ---------------------------------------------------------
-mes = st.selectbox(
-    "Seleccione el mes del recibo (1-12)",
-    options=list(range(1, 13)),
-    format_func=lambda x: ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
-                           "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][x-1]
+# SELECCIÓN DEL DÍA DEL RECIBO
+# ---------------------------------------------------------
+dia_recibo = st.selectbox(
+    "Seleccione el día del recibo (1-12)",
+    options=list(range(1, 13))
 )
 
-nombre_mes = ["Enero","Febrero","Marzo","Abril","Mayo","Junio",
-              "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][mes-1]
-
-st.write(f"Mes seleccionado: {nombre_mes}")
-# Convertir el número del mes a nombre
-meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-         "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-nombre_mes = meses[mes - 1]
-
-print(f"Mes seleccionado: {nombre_mes}")
-
-# Aquí continúa tu código existente
+st.write(f"Día del recibo seleccionado: {dia_recibo}")
 def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
