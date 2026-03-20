@@ -188,10 +188,9 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
 # ------------------------------
 # Preparar flujos y fechas para TAE
 # ------------------------------
-
-if capital is None:
-    st.error("Debes introducir un importe de financiación.")
-    st.stop()
+from decimal import Decimal
+from datetime import datetime, date
+import pandas as pd
 
 # Primer flujo: capital recibido (negativo)
 flujos = [-float(Decimal(str(capital)))]
@@ -215,11 +214,11 @@ for f in fechas:
     else:
         raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
 
-# Calcular TAE
+# Calcular TAE usando la función calcular_tae que ya tienes
 tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
+
 st.write(f"📈 TAE calculada: {tae} %")
-# ---------------------------------------------------------
-# INPUTS
+# -------------------------------------------------------inputTS
 # ---------------------------------------------------------
 vitesse_valores = [2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
 
