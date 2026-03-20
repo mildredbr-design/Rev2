@@ -53,7 +53,8 @@ def dias_ano(fecha):
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
     Calcula los intereses exactos de un capital entre fecha_inicio y fecha_fin,
-    desglosando diciembre y enero SOLO si hay cambio de base (bisiesto/no bisiesto).
+    desglosando diciembre y enero solo si hay cambio de base (bisiesto/no bisiesto).
+    Ajuste: ya no suma +1 a los días de diciembre.
     """
     capital = Decimal(str(capital))
     tin = Decimal(str(tin)) / Decimal("100")
@@ -72,12 +73,12 @@ def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
         if base_inicio != base_fin:
             # Interés diciembre (año inicial)
             fin_dic = date(fecha_inicio.year, 12, 31)
-            dias_dic = (fin_dic - fecha_inicio).days + 1
+            dias_dic = (fin_dic - fecha_inicio).days  # ⚡ Ajuste aquí, no +1
             interes_diciembre = (capital * tin * Decimal(dias_dic) / Decimal(base_inicio)).quantize(Decimal("0.00001"))
 
             # Interés enero (año siguiente)
             inicio_ene = date(fecha_fin.year, 1, 1)
-            dias_ene = (fecha_fin - inicio_ene).days + 1
+            dias_ene = (fecha_fin - inicio_ene).days + 1  # enero sí mantiene +1
             interes_enero = (capital * tin * Decimal(dias_ene) / Decimal(base_fin)).quantize(Decimal("0.00001"))
 
             interes_total = (interes_diciembre + interes_enero).quantize(Decimal("0.00001"))
@@ -252,4 +253,4 @@ if st.button("Calcular") and valor is not None:
         data=excel_data,
         file_name="simulacion_revolving.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        )
