@@ -147,15 +147,24 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0, di
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
+# ---------------------------------------------------------
 # CALCULO TAE
 # ---------------------------------------------------------
-
 def calcular_tae(cuotas, fechas, capital, tin, duracion):
     """
     Calcula la TAE:
     - Si capital < 6000 €, se usa aproximación: TAE ≈ (1 + TIN/12)^duración - 1
     - Si capital >= 6000 €, se calcula mediante VAN iterativo con flujos y fechas
     """
+    from decimal import Decimal
+    import pandas as pd
+    import calendar
+
+    def dias_ano(fecha):
+        if isinstance(fecha, pd.Timestamp):
+            fecha = fecha.date()
+        return 366 if calendar.isleap(fecha.year) else 365
+
     if capital < 6000:
         # TIN mensual
         r = Decimal(str(tin)) / Decimal("100") / Decimal("12")
@@ -185,6 +194,7 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
             maximo = medio
     return round(medio * 100, 2)
 
+
 # ------------------------------
 # Preparar flujos y fechas para TAE
 # ------------------------------
@@ -192,32 +202,35 @@ from decimal import Decimal
 from datetime import datetime, date
 import pandas as pd
 
-# Primer flujo: capital recibido (negativo)
-flujos = [-float(Decimal(str(capital)))]
+# Solo ejecutar si la tabla ya fue generada y capital es válido
+if 'tabla' in locals() and len(tabla) > 0 and capital is not None:
 
-# Todas las cuotas de la tabla (sin seguro ni comisión), convertidas a float seguro
-cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
-flujos += cuotas_lista
+    # Primer flujo: capital recibido (negativo)
+    flujos = [-float(Decimal(str(capital)))]
 
-# Fechas correspondientes a los flujos
-fechas = [fecha_inicio] + list(tabla["Fecha"])
+    # Todas las cuotas de la tabla (sin seguro ni comisión), convertidas a float seguro
+    cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
+    flujos += cuotas_lista
 
-# Convertir todas las fechas a tipo date seguro
-fechas_tae = []
-for f in fechas:
-    if isinstance(f, pd.Timestamp):
-        fechas_tae.append(f.date())
-    elif isinstance(f, datetime):
-        fechas_tae.append(f.date())
-    elif isinstance(f, date):
-        fechas_tae.append(f)
-    else:
-        raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
+    # Fechas correspondientes a los flujos
+    fechas = [fecha_inicio] + list(tabla["Fecha"])
 
-# Calcular TAE usando la función calcular_tae que ya tienes
-tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
+    # Convertir todas las fechas a tipo date seguro
+    fechas_tae = []
+    for f in fechas:
+        if isinstance(f, pd.Timestamp):
+            fechas_tae.append(f.date())
+        elif isinstance(f, datetime):
+            fechas_tae.append(f.date())
+        elif isinstance(f, date):
+            fechas_tae.append(f)
+        else:
+            raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
 
-st.write(f"📈 TAE calculada: {tae} %")
+    # Calcular TAE usando la función calcular_tae
+    tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
+
+    st.write(f"📈 TAE calculada: {tae} %")
 # -------------------------------------------------------inputTS
 # ---------------------------------------------------------
 vitesse_valores = [2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
