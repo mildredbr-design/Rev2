@@ -190,14 +190,12 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
 # Preparar flujos y fechas para TAE
 # ------------------------------
 
-# Comisión de apertura
-comision = (Decimal(str(capital)) * Decimal(str(comision_pct)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
 # Primer flujo: capital recibido (negativo)
 flujos = [-float(capital)]
 
-# Segundo flujo: primera cuota + comisión de apertura
-flujos += [float(tabla.loc[0, "Cuota (€)"]) + float(comision)]
+# Segundo flujo: primera cuota
+flujos += [float(tabla.loc[0, "Cuota (€)"])]
 
 # Resto de cuotas normales (sin seguro ni comisión)
 flujos += pd.to_numeric(tabla["Cuota (€)"][1:], errors='coerce').astype(float).tolist()
