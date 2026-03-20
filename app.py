@@ -51,35 +51,37 @@ def dias_ano(fecha):
     return 366 if calendar.isleap(fecha.year) else 365
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
+    """
+    Calcula los intereses exactos de un capital entre fecha_inicio y fecha_fin,
+    desglosando diciembre y enero si hay cruce de año, y usando la base correcta
+    del año correspondiente (bisiesto o no bisiesto).
+    """
     capital = Decimal(str(capital))
     tin = Decimal(str(tin)) / Decimal("100")
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
+
     interes_diciembre = Decimal("0")
     interes_enero = Decimal("0")
 
-    # Caso de cruce de año enero
-    if fecha_fin.month == 1 and fecha_inicio.year < fecha_fin.year:
-        bisiesto_prev = calendar.isleap(fecha_inicio.year)
-        bisiesto_curr = calendar.isleap(fecha_fin.year)
+    # Detectar cruce de año
+    if fecha_fin.year != fecha_inicio.year:
+        # Interés diciembre (año inicial)
+        fin_dic = date(fecha_inicio.year, 12, 31)
+        dias_dic = (fin_dic - fecha_inicio).days + 1
+        base_dic = 366 if calendar.isleap(fecha_inicio.year) else 365
+        interes_diciembre = (capital * tin * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
 
-        # Solo ajustamos diciembre si hay cambio de bisiesto
-        if bisiesto_prev != bisiesto_curr:
-            # Días reales desde fecha_inicio hasta 31 diciembre
-            fin_dic = date(fecha_inicio.year, 12, 31)
-            dias_dic = (fin_dic - fecha_inicio).days + 1
-            base_dic = 366 if bisiesto_prev else 365
-            interes_diciembre = (capital * tin * Decimal(dias_dic) / Decimal(base_dic)).quantize(Decimal("0.00001"))
+        # Interés enero (año siguiente)
+        inicio_ene = date(fecha_fin.year, 1, 1)
+        dias_ene = (fecha_fin - inicio_ene).days + 1
+        base_ene = 366 if calendar.isleap(fecha_fin.year) else 365
+        interes_enero = (capital * tin * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
 
-            # Días de enero hasta fecha_fin
-            inicio_ene = date(fecha_fin.year, 1, 1)
-            dias_ene = (fecha_fin - inicio_ene).days + 1
-            base_ene = 366 if bisiesto_curr else 365
-            interes_enero = (capital * tin * Decimal(dias_ene) / Decimal(base_ene)).quantize(Decimal("0.00001"))
+        interes_total = (interes_diciembre + interes_enero).quantize(Decimal("0.00001"))
+        return interes_total, interes_diciembre, interes_enero
 
-            return (interes_diciembre + interes_enero).quantize(Decimal("0.00001")), interes_diciembre, interes_enero
-
-    # Caso normal (mismo año o sin cambio de bisiesto)
+    # Caso normal (mismo año)
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
     interes_total = (capital * tin * Decimal(dias_tramo) / Decimal(base)).quantize(Decimal("0.00001"))
@@ -248,4 +250,4 @@ if st.button("Calcular") and valor is not None:
         data=excel_data,
         file_name="simulacion_revolving.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+)
