@@ -147,11 +147,14 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0, di
     return pd.DataFrame(datos)
 
 # ---------------------------------------------------------
+# # ---------------------------------------------------------
 # CALCULO TAE
 # ---------------------------------------------------------
 from decimal import Decimal
 from datetime import datetime, date
 import pandas as pd
+import calendar
+import streamlit as st
 
 def calcular_tae(cuotas, fechas, capital, tin, duracion):
     """
@@ -159,8 +162,6 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
     - Si capital < 6000 €, se usa aproximación: TAE ≈ (1 + TIN/12)^duración - 1
     - Si capital >= 6000 €, se calcula mediante VAN iterativo con flujos y fechas
     """
-    import calendar
-
     def dias_ano(fecha):
         if isinstance(fecha, pd.Timestamp):
             fecha = fecha.date()
@@ -195,9 +196,14 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
 
 
 # ------------------------------
-# Preparar flujos y fechas para TAE
+# BLOQUE STREAMLIT: Preparar flujos y calcular TAE
 # ------------------------------
-if 'tabla' in locals() and len(tabla) > 0:
+if st.button("Calcular"):
+
+    # Verificar que tabla existe y tiene datos
+    if 'tabla' not in locals() or len(tabla) == 0:
+        st.error("Primero genera la tabla de amortización.")
+        st.stop()
 
     # Duración en meses
     duracion = len(tabla)
@@ -205,14 +211,14 @@ if 'tabla' in locals() and len(tabla) > 0:
     # Primer flujo: capital recibido (negativo)
     flujos = [-float(Decimal(str(capital)))]
 
-    # Todas las cuotas de la tabla (sin seguro ni comisión)
+    # Cuotas convertidas a float seguro
     cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
     flujos += cuotas_lista
 
     # Fechas correspondientes a los flujos
     fechas = [fecha_inicio] + list(tabla["Fecha"])
 
-    # Convertir todas las fechas a tipo date seguro
+    # Convertir todas las fechas a tipo date
     fechas_tae = []
     for f in fechas:
         if isinstance(f, pd.Timestamp):
@@ -226,7 +232,6 @@ if 'tabla' in locals() and len(tabla) > 0:
 
     # Calcular TAE
     tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), duracion)
-
     st.write(f"📈 TAE calculada: {tae} %")
 # -------------------------------------------------------inputTS
 # ---------------------------------------------------------
