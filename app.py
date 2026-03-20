@@ -187,11 +187,20 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
 
 
 # ------------------------------
+from decimal import Decimal
+from datetime import datetime, date
+import pandas as pd
+
+# ------------------------------
 # Preparar flujos y fechas para TAE
 # ------------------------------
 
+if capital is None:
+    st.error("Debes introducir un importe de financiación.")
+    st.stop()
+
 # Primer flujo: capital recibido (negativo)
-flujos = [-float(capital)]
+flujos = [-float(Decimal(str(capital)))]
 
 # Todas las cuotas de la tabla (sin seguro ni comisión), convertidas a float seguro
 cuotas_lista = pd.to_numeric(tabla["Cuota (€)"], errors='coerce').fillna(0).astype(float).tolist()
@@ -214,7 +223,6 @@ for f in fechas:
 
 # Calcular TAE
 tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
-
 st.write(f"📈 TAE calculada: {tae} %")
 # ---------------------------------------------------------
 # INPUTS
