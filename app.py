@@ -53,10 +53,6 @@ def dias_ano(fecha):
         fecha = fecha.date()
     return 366 if calendar.isleap(fecha.year) else 365
 
-fechas_tae = [pd.to_datetime(f).date() if not isinstance(f, datetime) else f.date() for f in fechas]
-
-
-
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
     """
     Calcula los intereses exactos de un capital entre fecha_inicio y fecha_fin,
@@ -188,6 +184,45 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
         else:
             maximo = medio
     return round(medio * 100, 2)
+
+
+# ------------------------------
+# Preparar flujos y fechas para TAE
+# ------------------------------
+
+# Comisión de apertura
+comision = (Decimal(str(capital)) * Decimal(str(comision_pct)) / Decimal("100")).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
+# Primer flujo: capital recibido (negativo)
+flujos = [-float(capital)]
+
+# Segundo flujo: primera cuota + comisión de apertura
+flujos += [float(tabla.loc[0, "Cuota (€)"]) + float(comision)]
+
+# Resto de cuotas normales (sin seguro ni comisión)
+flujos += pd.to_numeric(tabla["Cuota (€)"][1:], errors='coerce').astype(float).tolist()
+
+# Fechas correspondientes a los flujos
+fechas = [fecha_inicio] + list(tabla["Fecha"])
+
+# Convertir todas las fechas a tipo date de forma segura
+from datetime import datetime, date
+fechas_tae = []
+for f in fechas:
+    if isinstance(f, pd.Timestamp):
+        fechas_tae.append(f.date())
+    elif isinstance(f, datetime):
+        fechas_tae.append(f.date())
+    elif isinstance(f, date):
+        fechas_tae.append(f)
+    else:
+        raise ValueError(f"Tipo de fecha no esperado: {type(f)}")
+
+# Calcular TAE
+tae = calcular_tae(flujos, fechas_tae, float(capital), float(tin), int(duracion))
+
+st.write(f"TAE calculada: {tae} %")
+
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
