@@ -185,12 +185,6 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
             maximo = medio
     return round(medio * 100, 2)
 
-
-# ------------------------------
-from decimal import Decimal
-from datetime import datetime, date
-import pandas as pd
-
 # ------------------------------
 # Preparar flujos y fechas para TAE
 # ------------------------------
