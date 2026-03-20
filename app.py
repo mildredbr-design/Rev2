@@ -8,7 +8,7 @@ from io import BytesIO
 getcontext().prec = 10
 
 st.set_page_config(page_title="Simulador Revolving", layout="wide")
-st.title("💳 Simulador Revolving con Seguro Opcional y TAE Exacta")
+st.title("💳 Simulador Revolving")
 
 # ---------------------------------------------------------
 # SELECCIÓN DEL DÍA DEL RECIBO
