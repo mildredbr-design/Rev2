@@ -146,6 +146,7 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0, di
 # ---------------------------------------------------------
 # CALCULO TAE
 # ---------------------------------------------------------
+
 def calcular_tae(cuotas, fechas, capital, tin, duracion):
     """
     Calcula la TAE:
@@ -154,8 +155,8 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
     """
     if capital < 6000:
         # TIN mensual
-        r = Decimal(str(tin)) / Decimal("100") / Decimal(str(duracion))
-        tae = ( (1 + r) ** Decimal(str(duracion)) - 1 ) * 100
+        r = Decimal(str(tin)) / Decimal("100") / Decimal("12")
+        tae = ((1 + r) ** Decimal(str(duracion)) - 1) * 100
         return round(float(tae), 2)
 
     # Cálculo normal para capital >= 6000
@@ -180,7 +181,6 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
         else:
             maximo = medio
     return round(medio * 100, 2)
-
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
