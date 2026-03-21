@@ -149,7 +149,7 @@ def calcular_tae(cuotas, fechas, capital, tin, duracion):
     # Condicional por capital < 6000
     if capital < 6000:
         r = Decimal(str(tin)) / Decimal("100") / Decimal("12")
-        tae = ((1 + r/12)) ** 12 - 1) * 100
+        tae = (((1 + r/12) ** (12))- 1) * 100
         return round(float(tae), 2)
 
     tiempos = [0.0]
