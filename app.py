@@ -18,19 +18,15 @@ try:
         "COFES_01_Date_Blocage.csv",
         header=0
     )
-
     cofres["Fecha_BLOQUEO"] = pd.to_datetime(
         cofres["Fecha_BLOQUEO"],
         format="%d/%m/%Y",
         errors="coerce"
     )
-
     cofres = cofres.dropna()
-
     cofres["mes"] = cofres["Fecha_BLOQUEO"].dt.month
     cofres["anio"] = cofres["Fecha_BLOQUEO"].dt.year
     cofres["Fecha_BLOQUEO"] = cofres["Fecha_BLOQUEO"].dt.date
-
 except Exception:
     st.error("Error cargando COFES_01_Date_Blocage.csv")
     st.stop()
@@ -42,55 +38,39 @@ dia_recibo = st.selectbox(
     "Seleccione el día del recibo (1-12)",
     options=list(range(1, 13))
 )
-
 st.write(f"Día del recibo seleccionado: {dia_recibo}")
 
 # ---------------------------------------------------------
 # FUNCIONES DE FECHAS
 # ---------------------------------------------------------
 def primer_recibo(fecha_inicio, dia_recibo):
-
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
-
     bloqueo_mes = cofres[
         (cofres["mes"] == fecha_inicio.month) &
         (cofres["anio"] == fecha_inicio.year)
     ]
-
     if bloqueo_mes.empty:
         st.error(
             f"No existe fecha de bloqueo para {fecha_inicio.month}/{fecha_inicio.year}"
         )
         st.stop()
-
     fecha_bloqueo = bloqueo_mes.iloc[0]["Fecha_BLOQUEO"]
-
-    if fecha_inicio < fecha_bloqueo:
-        meses_sumar = 1
-    else:
-        meses_sumar = 2
-
+    meses_sumar = 1 if fecha_inicio < fecha_bloqueo else 2
     year = fecha_inicio.year
     month = fecha_inicio.month + meses_sumar
-
     while month > 12:
         month -= 12
         year += 1
-
     day = min(dia_recibo, calendar.monthrange(year, month)[1])
-
     return date(year, month, day)
 
 
 def siguiente_recibo(fecha_actual):
     year, month = fecha_actual.year, fecha_actual.month + 1
-
     if month > 12:
         month = 1
         year += 1
-
     day = min(fecha_actual.day, calendar.monthrange(year, month)[1])
-
     return fecha_actual.replace(year=year, month=month, day=day)
 
 # ---------------------------------------------------------
@@ -99,136 +79,86 @@ def siguiente_recibo(fecha_actual):
 def dias_ano(fecha):
     if isinstance(fecha, pd.Timestamp):
         fecha = fecha.date()
-
     return 366 if calendar.isleap(fecha.year) else 365
 
 
 def interes_preciso(capital, tin, fecha_inicio, fecha_fin):
-
     capital = Decimal(str(capital))
     tin = Decimal(str(tin)) / Decimal("100")
-
     fecha_inicio = pd.to_datetime(fecha_inicio).date()
     fecha_fin = pd.to_datetime(fecha_fin).date()
-
     interes_diciembre = Decimal("0")
     interes_enero = Decimal("0")
-
     if fecha_fin.year != fecha_inicio.year:
-
         base_inicio = 366 if calendar.isleap(fecha_inicio.year) else 365
         base_fin = 366 if calendar.isleap(fecha_fin.year) else 365
-
         if base_inicio != base_fin:
-
             fin_dic = date(fecha_inicio.year, 12, 31)
             dias_dic = (fin_dic - fecha_inicio).days
-
             interes_diciembre = (
                 capital * tin * Decimal(dias_dic) / Decimal(base_inicio)
             ).quantize(Decimal("0.00001"))
-
             inicio_ene = date(fecha_fin.year, 1, 1)
             dias_ene = (fecha_fin - inicio_ene).days + 1
-
             interes_enero = (
                 capital * tin * Decimal(dias_ene) / Decimal(base_fin)
             ).quantize(Decimal("0.00001"))
-
             interes_total = (
                 interes_diciembre + interes_enero
             ).quantize(Decimal("0.00001"))
-
             return interes_total, interes_diciembre, interes_enero
-
     dias_tramo = (fecha_fin - fecha_inicio).days
     base = dias_ano(fecha_inicio)
-
     interes_total = (
         capital * tin * Decimal(dias_tramo) / Decimal(base)
     ).quantize(Decimal("0.00001"))
-
     return interes_total, Decimal("0"), interes_total
 
 # ---------------------------------------------------------
 # SIMULADOR
 # ---------------------------------------------------------
 def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
-
     capital = Decimal(str(capital))
     saldo = capital
     seguro_tasa = Decimal(str(seguro_tasa))
-
     fecha_pago = primer_recibo(fecha_inicio, dia_recibo)
     fecha_anterior = fecha_inicio
-
     datos = []
     mes = 1
 
     if tipo_calculo == "Vitesse":
         cuota = (capital * Decimal(str(valor)) / Decimal("100")).quantize(
-            Decimal("0.01"),
-            ROUND_HALF_UP
+            Decimal("0.01"), ROUND_HALF_UP
         )
-
     elif tipo_calculo == "Cuota":
         cuota = Decimal(str(valor)).quantize(
-            Decimal("0.01"),
-            ROUND_HALF_UP
+            Decimal("0.01"), ROUND_HALF_UP
         )
 
     while saldo > 0:
-
         interes_total, interes_dic, interes_ene = interes_preciso(
-            saldo,
-            tin,
-            fecha_anterior,
-            fecha_pago
+            saldo, tin, fecha_anterior, fecha_pago
         )
-
         interes_total = interes_total.quantize(
-            Decimal("0.01"),
-            ROUND_HALF_UP
+            Decimal("0.01"), ROUND_HALF_UP
         )
-
         seguro = (
             (saldo + interes_total) * seguro_tasa
         ).quantize(Decimal("0.01"), ROUND_HALF_UP)
 
         if saldo + interes_total <= cuota:
-
             amort = saldo.quantize(Decimal("0.01"))
             saldo = Decimal("0")
-
-            cuota_final = (
-                amort + interes_total
-            ).quantize(Decimal("0.01"))
-
+            cuota_final = (amort + interes_total).quantize(Decimal("0.01"))
         else:
-
-            amort = (cuota - interes_total).quantize(
-                Decimal("0.01")
-            )
-
-            saldo = (saldo - amort).quantize(
-                Decimal("0.01")
-            )
-
+            amort = (cuota - interes_total).quantize(Decimal("0.01"))
+            saldo = (saldo - amort).quantize(Decimal("0.01"))
             cuota_final = cuota
 
-        # ---------------------------------------------------------
-        # COLUMNAS NUEVAS: % Amortización y >2%
-        # capital_mes = capital pendiente ANTES de amortizar este mes
-        # ---------------------------------------------------------
+        # --- COLUMNAS NUEVAS ---
         capital_mes = float(saldo + amort)
         amort_float = float(amort)
-
-        if capital_mes > 0:
-            pct_amort = round((amort_float / capital_mes) * 100, 4)
-        else:
-            pct_amort = 0.0
-
-        supera_2pct = "Sí" if pct_amort > 2 else "No"
+        pct_amort = round((amort_float / capital_mes) * 100, 4) if capital_mes > 0 else 0.0
 
         datos.append({
             "Mes": mes,
@@ -240,7 +170,7 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
             "Intereses total (€)": float(interes_total),
             "Amortización (€)": amort_float,
             "% Amortización": pct_amort,
-            ">2%": supera_2pct,
+            ">2%": "Sí" if pct_amort > 2 else "No",
             "Saldo (€)": float(saldo),
             "Seguro (€)": float(seguro),
             "Recibo total (€)": float(cuota_final + seguro)
@@ -248,7 +178,6 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
 
         fecha_anterior = fecha_pago
         fecha_pago = siguiente_recibo(fecha_pago)
-
         mes += 1
 
         if mes > 600:
@@ -260,24 +189,17 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
 # CALCULO TAE
 # ---------------------------------------------------------
 def calcular_tae(cuotas, fechas, capital, tin):
-
     if capital < 6000:
-
         tin_decimal = Decimal(str(tin)) / Decimal("100")
-
         tae = (
             (1 + tin_decimal / Decimal("12")) ** Decimal("12") - 1
         ) * 100
-
         return round(float(tae), 2)
 
     tiempos = [0.0]
-
     for i in range(1, len(fechas)):
-
         f0 = pd.to_datetime(fechas[i-1]).date()
         f1 = pd.to_datetime(fechas[i]).date()
-
         fraccion = (f1 - f0).days / dias_ano(f0)
         tiempos.append(tiempos[-1] + fraccion)
 
@@ -288,15 +210,11 @@ def calcular_tae(cuotas, fechas, capital, tin):
         )
 
     minimo, maximo = -0.9999, 10
-
     for _ in range(1000):
-
         medio = (minimo + maximo) / 2
         valor = van(medio)
-
         if abs(valor) < 1e-10:
             return round(medio * 100, 2)
-
         if valor > 0:
             minimo = medio
         else:
@@ -307,27 +225,17 @@ def calcular_tae(cuotas, fechas, capital, tin):
 # ---------------------------------------------------------
 # INPUTS
 # ---------------------------------------------------------
-vitesse_valores = [2.7,2.75,3,3.25,3.43,4.37,5.17,6.57,9.37]
+vitesse_valores = [2.7, 2.75, 3, 3.25, 3.43, 4.37, 5.17, 6.57, 9.37]
 
 capital = st.number_input(
-    "Importe de financiación (€)",
-    0.0,
-    1000000.0,
-    6000.0
+    "Importe de financiación (€)", 0.0, 1000000.0, 6000.0
 )
-
 tin = st.number_input(
-    "TIN anual (%)",
-    0.0,
-    100.0,
-    21.79
+    "TIN anual (%)", 0.0, 100.0, 21.79
 )
-
 fecha_inicio = st.date_input(
-    "Fecha de financiación",
-    datetime.today()
+    "Fecha de financiación", datetime.today()
 )
-
 tipo_calculo = st.selectbox(
     "Tipo de cálculo",
     ["Seleccionar", "Vitesse", "Cuota", "Duración"]
@@ -336,53 +244,23 @@ tipo_calculo = st.selectbox(
 valor = None
 
 if tipo_calculo == "Vitesse":
-
-    valor = st.selectbox(
-        "Vitesse (%)",
-        vitesse_valores
-    )
+    valor = st.selectbox("Vitesse (%)", vitesse_valores)
 
 elif tipo_calculo == "Cuota":
-
-    opciones_cuota = [
-        round(capital * v / 100, 2)
-        for v in vitesse_valores
-    ]
-
-    valor = st.selectbox(
-        "Cuota mensual (€)",
-        opciones_cuota
-    )
+    opciones_cuota = [round(capital * v / 100, 2) for v in vitesse_valores]
+    valor = st.selectbox("Cuota mensual (€)", opciones_cuota)
 
 elif tipo_calculo == "Duración":
-
     opciones_duracion = []
     mapa_vitesse = {}
-
     for v in vitesse_valores:
-
         cuota_test = round(capital * v / 100, 2)
-
-        tabla_test = simulador(
-            capital,
-            tin,
-            "Cuota",
-            cuota_test,
-            fecha_inicio,
-            0
-        )
-
+        tabla_test = simulador(capital, tin, "Cuota", cuota_test, fecha_inicio, 0)
         meses = len(tabla_test)
         etiqueta = f"{meses} meses"
-
         opciones_duracion.append(etiqueta)
         mapa_vitesse[etiqueta] = v
-
-    seleccion = st.selectbox(
-        "Duración del préstamo",
-        opciones_duracion
-    )
-
+    seleccion = st.selectbox("Duración del préstamo", opciones_duracion)
     valor = mapa_vitesse[seleccion]
     tipo_calculo = "Vitesse"
 
@@ -390,20 +268,15 @@ elif tipo_calculo == "Duración":
 # SEGURO
 # ---------------------------------------------------------
 opciones_seguro = {
-    "No":0,
-    "Un titular Light":0.0035,
-    "Un titular Full/Senior":0.0061,
-    "Dos titulares Full/Full":0.0104,
-    "Dos titulares Senior/Senior":0.0104,
-    "Dos titulares Light/Light":0.0059,
-    "Dos titulares Full/Light":0.0082
+    "No": 0,
+    "Un titular Light": 0.0035,
+    "Un titular Full/Senior": 0.0061,
+    "Dos titulares Full/Full": 0.0104,
+    "Dos titulares Senior/Senior": 0.0104,
+    "Dos titulares Light/Light": 0.0059,
+    "Dos titulares Full/Light": 0.0082
 }
-
-seguro_str = st.selectbox(
-    "Seguro mensual",
-    list(opciones_seguro.keys())
-)
-
+seguro_str = st.selectbox("Seguro mensual", list(opciones_seguro.keys()))
 seguro_tasa = opciones_seguro[seguro_str]
 
 # ---------------------------------------------------------
@@ -411,19 +284,11 @@ seguro_tasa = opciones_seguro[seguro_str]
 # ---------------------------------------------------------
 if st.button("Calcular") and valor is not None:
 
-    tabla = simulador(
-        capital,
-        tin,
-        tipo_calculo,
-        valor,
-        fecha_inicio,
-        seguro_tasa
-    )
+    tabla = simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa)
 
     if seguro_tasa == 0:
         tabla = tabla.drop(columns=["Seguro (€)"])
 
-    # Colorear columna >2%: verde si Sí, rojo si No
     def color_supera(val):
         if val == "Sí":
             return "background-color: #d4edda; color: #155724; font-weight: bold"
@@ -435,43 +300,26 @@ if st.button("Calcular") and valor is not None:
         use_container_width=True
     )
 
-    total_intereses = round(
-        tabla["Intereses total (€)"].sum(),
-        2
-    )
-
-    total_capital_intereses = round(
-        tabla["Cuota (€)"].sum(),
-        2
-    )
-
-    total_seguro = (
-        round(tabla["Seguro (€)"].sum(),2)
-        if seguro_tasa > 0 else 0
-    )
+    total_intereses = round(tabla["Intereses total (€)"].sum(), 2)
+    total_capital_intereses = round(tabla["Cuota (€)"].sum(), 2)
+    total_seguro = round(tabla["Seguro (€)"].sum(), 2) if seguro_tasa > 0 else 0
 
     flujos = [-capital]
     flujos += tabla["Cuota (€)"].tolist()
-
     fechas = [fecha_inicio]
     fechas += tabla["Fecha recibo"].tolist()
 
-    tae = calcular_tae(
-        flujos,
-        fechas,
-        capital,
-        tin
-    )
+    tae = calcular_tae(flujos, fechas, capital, tin)
 
     resumen_dict = {
-        "Concepto":[
+        "Concepto": [
             "Duración (meses)",
             "Intereses (€)",
             "Seguro (€)",
             "Coste total",
             "TAE (%)"
         ],
-        "Valor":[
+        "Valor": [
             len(tabla),
             total_intereses,
             total_seguro,
@@ -481,29 +329,17 @@ if st.button("Calcular") and valor is not None:
     }
 
     df_resumen = pd.DataFrame(resumen_dict)
-
     st.subheader("Resumen")
     st.table(df_resumen)
 
     output = BytesIO()
-
     with pd.ExcelWriter(output) as writer:
-
-        tabla.to_excel(
-            writer,
-            sheet_name="Cuadro Amortización",
-            index=False
-        )
-
-        df_resumen.to_excel(
-            writer,
-            sheet_name="Resumen",
-            index=False
-        )
+        tabla.to_excel(writer, sheet_name="Cuadro Amortización", index=False)
+        df_resumen.to_excel(writer, sheet_name="Resumen", index=False)
 
     st.download_button(
         "📥 Descargar Excel",
         data=output.getvalue(),
         file_name="simulacion_revolving.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    )
