@@ -216,15 +216,31 @@ def simulador(capital, tin, tipo_calculo, valor, fecha_inicio, seguro_tasa=0):
 
             cuota_final = cuota
 
+        # ---------------------------------------------------------
+        # COLUMNAS NUEVAS: % Amortización y >2%
+        # capital_mes = capital pendiente ANTES de amortizar este mes
+        # ---------------------------------------------------------
+        capital_mes = float(saldo + amort)
+        amort_float = float(amort)
+
+        if capital_mes > 0:
+            pct_amort = round((amort_float / capital_mes) * 100, 4)
+        else:
+            pct_amort = 0.0
+
+        supera_2pct = "Sí" if pct_amort > 2 else "No"
+
         datos.append({
             "Mes": mes,
             "Fecha recibo": fecha_pago,
-            "Capital pendiente (€)": float(saldo + amort),
+            "Capital pendiente (€)": capital_mes,
             "Cuota (€)": float(cuota_final),
             "Intereses diciembre (€)": float(interes_dic),
             "Intereses enero (€)": float(interes_ene),
             "Intereses total (€)": float(interes_total),
-            "Amortización (€)": float(amort),
+            "Amortización (€)": amort_float,
+            "% Amortización": pct_amort,
+            ">2%": supera_2pct,
             "Saldo (€)": float(saldo),
             "Seguro (€)": float(seguro),
             "Recibo total (€)": float(cuota_final + seguro)
@@ -407,7 +423,17 @@ if st.button("Calcular") and valor is not None:
     if seguro_tasa == 0:
         tabla = tabla.drop(columns=["Seguro (€)"])
 
-    st.dataframe(tabla, use_container_width=True)
+    # Colorear columna >2%: verde si Sí, rojo si No
+    def color_supera(val):
+        if val == "Sí":
+            return "background-color: #d4edda; color: #155724; font-weight: bold"
+        else:
+            return "background-color: #f8d7da; color: #721c24; font-weight: bold"
+
+    st.dataframe(
+        tabla.style.applymap(color_supera, subset=[">2%"]),
+        use_container_width=True
+    )
 
     total_intereses = round(
         tabla["Intereses total (€)"].sum(),
