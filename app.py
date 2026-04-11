@@ -296,7 +296,7 @@ if st.button("Calcular") and valor is not None:
             return "background-color: #f8d7da; color: #721c24; font-weight: bold"
 
     st.dataframe(
-        tabla.style.applymap(color_supera, subset=[">2%"]),
+        tabla.style.map(color_supera, subset=[">2%"]),
         use_container_width=True
     )
 
